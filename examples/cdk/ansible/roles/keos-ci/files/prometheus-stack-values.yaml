@@ -1,0 +1,109 @@
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+defaultRules:
+  create: true
+  rules:
+    alertmanager: false
+    etcd: false
+    configReloaders: true
+    general: true
+    k8s: true
+    kubeApiserver: true
+    kubeApiserverAvailability: true
+    kubeApiserverSlos: true
+    kubelet: true
+    kubeProxy: true
+    kubePrometheusGeneral: true
+    kubePrometheusNodeRecording: true
+    kubernetesApps: true
+    kubernetesResources: true
+    kubernetesStorage: true
+    kubernetesSystem: true
+    kubeScheduler: true
+    kubeStateMetrics: true
+    network: true
+    node: true
+    nodeExporterAlerting: true
+    nodeExporterRecording: true
+    prometheus: true
+    prometheusOperator: true
+
+alertmanager:
+  enabled: false
+
+grafana:
+  enabled: false
+
+kubeControllerManager:
+  enabled: true
+
+kubelet:
+  enabled: true
+
+kubeProxy:
+  enabled: true
+
+kubeScheduler:
+  enabled: true
+
+kubeEtcd:
+  enabled: false
+
+## Deploy a Prometheus instance
+##
+prometheus:
+  enabled: true
+  #annotations: {}
+  serviceAccount:
+    create: true
+    #name: ""
+    #annotations: {}
+
+  ingress:
+    enabled: true
+    ingressClassName: default-ingress-class
+    path: /
+    pathType: ImplementationSpecific
+    hosts: 
+      - prometheus-keos-ci.int.stratio.com
+    tls:
+      - secretName: wildcard-int-stratio-com
+        hosts:
+        - prometheus-keos-ci.int.stratio.com
+
+  prometheusSpec:
+    externalUrl: "prometheus-keos-ci.int.stratio.com"
+    # image:
+    #   repository: quay.io/prometheus/prometheus
+    #   tag: v2.34.0
+    #   sha: ""
+    retention: 90d
+    retentionSize: "120GB"
+    logLevel: info
+    logFormat: logfmt
+    routePrefix: /
+    #podAntiAffinity: ""
+    storageSpec:
+     volumeClaimTemplate:
+       spec:
+         storageClassName: sc-portworx-fa-direct-access #px-sharedv4-sc
+         accessModes: ["ReadWriteOnce"]
+         resources:
+           requests:
+             storage: 150Gi
+    #    selector: {}
+    additionalAlertManagerConfigs:
+      - scheme: https
+        static_configs:
+        - targets: ["alertmanager-aws.int.stratio.com"]
+
+    ## ConfigMaps is a list of ConfigMaps in the same namespace as the Prometheus object, which shall be mounted into the Prometheus Pods.
+    ## The ConfigMaps are mounted into /etc/prometheus/configmaps/.
+    ##
+    # configMaps:
+
+prometheus-node-exporter:
+  extraArgs:
+    - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|var/lib/containerd/.+|var/lib/kubelet/.+)($|/)
+    - --collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|tmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs)$

@@ -1,0 +1,367 @@
+---
+- hosts: localhost
+  become: true
+  become_user: root
+  roles:
+  - ../roles/keos-ci
+  vars:
+    cluster: "cicddev"
+    jenkins_namespace: "keos-ci" # keos-ci-pre or keos-ci
+    pureprefix: "kubecicdkucicddev-"
+    default_oldjenkins_vol: "{{pureprefix}}pvc-4f8ce35f-b1bc-4f9d-97d2-5b4cda5005e7"
+    helm_charts:
+      docker_registry:
+        repo_url: https://github.com/Stratio/docker-registry.helm
+        #repo_name: docker-registry
+        #chart_version: 2.0.0
+      jenkins:
+        # https://github.com/jenkinsci/helm-charts
+        repo_url: https://charts.jenkins.io
+        repo_name: jenkins
+        chart_name: jenkins
+        chart_version: 3.3.21
+      prometheus:
+        # https://github.com/prometheus-community/helm-charts
+        repo_url: https://prometheus-community.github.io/helm-charts
+        repo_name: prometheus-community
+        chart_name: kube-prometheus-stack
+        chart_version: 35.6.2
+      redis:
+        # https://github.com/bitnami/charts
+        repo_url: https://charts.bitnami.com/bitnami
+        repo_name: bitnami
+        chart_name: redis
+        chart_version: 18.6.4
+      sonarqube:
+        # https://github.com/SonarSource/helm-chart-sonarqube
+        repo_url: https://sonarsource.github.io/helm-chart-sonarqube/
+        repo_name: sonarqube
+        chart_name: sonarqube
+        chart_version: 8.0.0+463
+    download_url:
+      kubectl: "https://dl.k8s.io/release/{{ kubectl.version }}/bin/linux/amd64/kubectl"
+      buildkit:
+        tgz: "{{ buildkit.base_url }}/v{{ buildkit.version }}/linux-v{{ buildkit.version }}.tgz"
+        rpm: "{{ buildkit.base_url }}/v{{ buildkit.version }}/kubectl-buildkit-{{ buildkit.version }}-1.el7.x86_64.rpm"
+        deb: "{{ buildkit.base_url }}/v{{ buildkit.version }}/kubectl-buildkit-{{ buildkit.version }}_amd64.deb"
+      redis_ext_binaries:
+        url: "http://tools.stratio.com/buildtools/"
+        file: redisson-deps.tar.gz
+      sonarqube:
+        branch_plugin:
+          url: https://github.com/mc1arke/sonarqube-community-branch-plugin/releases/download/{{ sonarqube.plugins.branch_plugin.version }}/sonarqube-community-branch-plugin-{{ sonarqube.plugins.branch_plugin.version }}.jar
+    buildcache:
+      host: build-cache-node-dev.int.stratio.com
+    binaries_volume:
+      name: kubectl-binaries-volume
+      storage_class: px-sharedv4-sc
+      access_mode: ReadWriteMany
+      size: 1Gi
+    buildkit:
+      version: 0.1.6
+      base_url: "https://github.com/vmware-tanzu/buildkit-cli-for-kubectl/releases/download"
+      service_account: jenkins
+      replicas: "{{ ansible_play_hosts | length }}"
+    docker_registry:
+      volume:
+        name: docker-registry-volume
+        size: 1Ti
+        access_mode: ReadWriteOnce
+        storage_class: sc-portworx-fa-direct-access
+    grype:
+      volume:
+        name: grype-volume
+        access_mode: ReadWriteMany
+        storage_class: px-sharedv4-sc
+        size: 80Gi
+    kubectl:
+      # KEOS 0.7.5 uses k8s v1.23.7
+      # KEOS 1.0.4 uses k8s v1.28.3
+      version: v1.23.7
+    maven:
+      cleaner:
+        image: qa.int.stratio.com/stratio/mvn-cleaner:0.1.0-SNAPSHOT
+      volume:
+        name: maven-volume
+        access_mode: ReadWriteMany
+        storage_class: px-sharedv4-sc
+        size: 200Gi
+    nexus:
+      secret: credentials-nexus-secret-dev.yaml
+    redis:
+      ext_binaries:
+        volume:
+          name: redisson-ext-binaries
+          access_mode: ReadWriteMany
+          storage_class: px-sharedv4-sc
+          size: 1Gi
+    semgrep:
+      volume:
+        name: semgrep-volume
+        storage_class: px-sharedv4-sc
+        access_mode: ReadWriteMany
+        size: 80Gi
+    sonarqube:
+      image: sonarqube
+      edition: community
+      tag: "9.9.0-community"
+      resources:
+        requests:
+          cpu: 2
+          memory: 2Gi
+        limits:
+          cpu: 4
+          memory: 80Gi
+      custom_sonar_properties:
+        sonar.security.realm: LDAP
+        sonar.security.savePassword: true
+        ldap.url: ldap://10.120.0.19:389
+        ldap.bindDn: cn=Manager_read,ou=Administrators,ou=Users,dc=stratio,dc=com
+        ldap.user.baseDn: ou=Others,ou=Spain,ou=Internal,ou=Users,dc=stratio,dc=com
+      plugins:
+        security_context:
+          runAsUser: 1000
+          runAsGroup: 1000
+        branch_plugin:
+          version: 1.14.0
+      postgresql:
+        enabled: true
+        resources:
+          limits:
+            cpu: 4
+            memory: 80Gi
+          requests:
+            cpu: 100m
+            memory: 200Mi
+        persistence:
+          enabled: true
+          accessMode: ReadWriteMany
+          size: 80Gi
+          storageClass: px-sharedv4-sc
+        security_context:
+          enabled: true
+          fsGroup: 1001
+        container_security_context:
+          enabled: true
+          runAsUser: 1001
+      prometheus_exporter:
+        enabled: true
+        version: "0.16.0"
+        noCheckCertificate: false
+        webBeanPort: 8000
+        ceBeanPort: 8001
+        config:
+          rules:
+            - pattern: ".*"
+        securityContext:
+          runAsUser: 1000
+          runAsGroup: 1000
+    trivy:
+      volume:
+        name: trivy-volume
+        storage_class: px-sharedv4-sc
+        access_mode: ReadWriteMany
+        size: 80Gi
+    jenkins:
+      host: builder-dev.int.stratio.com
+      controller:
+        image: jenkins/jenkins
+        tag: 2.401.1-jdk11
+        resources:
+          requests:
+            cpu: 1
+            memory: 4Gi
+          limits:
+            cpu: 2
+            memory: 6Gi
+        home: "/var/jenkins_home"
+        ref: "/usr/share/jenkins/ref"
+        war: "/usr/share/jenkins/jenkins.war"
+        java:
+          Xms: 512m
+          Xmx: 512m
+          opts: "-XX:+AlwaysPreTouch -XX:+UseStringDeduplication -XX:+ParallelRefProcEnabled -XX:+DisableExplicitGC -XX:+UseG1GC"
+        jenkinsOpts: "-Dhudson.model.DirectoryBrowserSupport.CSP=\\\"default-src * 'unsafe-inline' 'unsafe-eval'; script-src * 'unsafe-inline' 'unsafe-eval'; connect-src * 'unsafe-inline'; img-src * data: blob: 'unsafe-inline'; frame-src *; style-src * 'unsafe-inline';\\\""
+        disableRememberMe: false
+        numExecutors: 1
+        executorMode: "EXCLUSIVE"
+        hostNetworking: false
+        usePodSecurityContext: true
+        podSecurityContextOverride:
+          runAsUser: "{{ controller_runAsUser }}"
+          runAsNonRoot: true
+          supplementalGroups: "[{{ controller_runAsUser }}]"
+        probes:
+          startupProbe:
+            httpGet:
+              path: /login
+              port: http
+            periodSeconds: 60
+            timeoutSeconds: 30
+            failureThreshold: 24
+          livenessProbe:
+            failureThreshold: 5
+            httpGet:
+              path: /login
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            # If Startup Probe is not supported on your Kubernetes cluster, you might want to use "initialDelaySeconds" instead.
+            # It delays the initial liveness probe while Jenkins is starting
+            # initialDelaySeconds: 60
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /login
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            # If Startup Probe is not supported on your Kubernetes cluster, you might want to use "initialDelaySeconds" instead.
+            # It delays the initial readyness probe while Jenkins is starting
+            # initialDelaySeconds: 60
+        servicePort: 8080
+        targetPort: 8080
+        serviceType: ClusterIP
+        agentListenerPort: 50000
+        disabledAgentProtocols:
+          - JNLP-connect
+          - JNLP2-connect
+        csrf:
+          defaultCrumbIssuer:
+            enabled: true
+            proxyCompatability: true
+        agentListenerServiceType: ClusterIP
+        installPlugins:
+          - workflow-cps
+          - kubernetes
+          - workflow-aggregator
+          - git
+          - configuration-as-code
+        installLatestPlugins: true
+        additionalPlugins:
+         - timestamper
+         - github-branch-source
+         - pipeline-utility-steps
+         - ansicolor
+         - config-file-provider
+         - custom-tools-plugin
+         - kubernetes-cli
+         - locale
+         - timestamper
+         - anchore-container-scanner
+         - http_request
+         - ldap
+         - pipeline-github
+         - jira-steps
+         - dashboard-view
+         - prometheus
+         - authorize-project
+         - matrix-auth
+         - antisamy-markup-formatter
+         - ws-cleanup
+         - buildtriggerbadge
+         - file-operations
+         - git-forensics
+         - sonar
+         - pipeline-aws
+         - github-checks
+        initializeOnce: true
+        overwritePlugins: false
+        overwritePluginsFromImage: false
+        enableRawHtmlMarkupFormatter: true
+        scriptApproval:
+          - "staticMethod org.codehaus.groovy.runtime.DefaultGroovyMethods invokeMethod java.lang.Object java.lang.String java.lang.Object"
+        initScripts:
+          - |
+            System.setProperty('org.apache.commons.jelly.tags.fmt.timeZone', 'Europe/Madrid')
+        additionalSecrets:
+          - name: "{{ controller_additionalSecrets_name }}"
+            value: "{{ controller_additionalSecrets_value }}"
+      sidecars:
+        configAutoReload:
+          image: kiwigrid/k8s-sidecar:0.1.275
+          reqRetryConnect: 10
+          sshTcpPort: 1044
+          folder: "/var/jenkins_home/casc_configs"
+      httpsKeyStore:
+        jenkinsHttpsJksSecretName: ''
+        enable: false
+        httpPort: 8081
+        path: "/var/jenkins_keystore"
+        fileName: "keystore.jks"
+        password: "{{ controller_httpsKeyStore_password }}"
+      agent:
+        enabled: true
+        image: "jenkins/inbound-agent"
+        tag: "4.6-1"
+        resources:
+          requests:
+            cpu: "8"
+            memory: "16Gi"
+          limits:
+            cpu: "8"
+            memory: "16Gi"
+        defaultsProviderTemplate: ""
+        # URL for connecting to the Jenkins contoller
+        jenkinsUrl: "http://jenkins:8080"
+        # connect to the specified host and port, instead of connecting directly to the Jenkins controller
+        jenkinsTunnel: "jenkins-agent:50000"
+        kubernetesConnectTimeout: 20
+        kubernetesReadTimeout: 30
+        maxRequestsPerHostStr: "32"
+        namespace:
+        workingDir: "/home/jenkins"
+        customJenkinsLabels: []
+        # name of the secret to be used for image pulling
+        imagePullSecretName:
+        componentName: "jenkins-agent"
+        websocket: false
+        privileged: false
+        runAsUser:
+        runAsGroup:
+        podRetention: "Never"
+        sideContainerName: "jnlp"
+        TTYEnabled: false
+        containerCap: 30
+        podName: "default"
+        idleMinutes: 2
+        yamlMergeStrategy: "override"
+        connectTimeout: 100
+      persistence:
+          enabled: true
+          existingClaim: jenkins-volume
+          accessMode: "ReadWriteOnce"
+          size: "160Gi"
+      networkPolicy:
+        enabled: false
+        internalAgents:
+          allowed: true
+      rbac:
+        create: true
+        readSecrets: false
+      serviceAccount:
+        create: true
+        name: jenkins
+      serviceAccountAgent:
+        create: false
+        name: "jenkins"
+      backup:
+        enabled: false
+        image:
+          repository: "maorfr/kube-tasks"
+          tag: "0.2.0"
+        resources:
+          requests:
+            memory: 1Gi
+            cpu: 1
+          limits:
+            memory: 1Gi
+            cpu: 1
+        componentName: "backup"
+        schedule: "0 2 * * *"
+        destination: "s3://jenkins-data/backup"
+        onlyJobs: false
+        usePodSecurityContext: true
+        runAsUser: 1000
+        fsGroup: 1000
+      checkDeprecation: true

@@ -1,0 +1,223 @@
+- name: Create credentials-nexus Secret {{ jenkins_namespace }}
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "{{ keos_kubeconfig_path }}"
+    template: "{{ nexus.secret }}"
+
+- name: Create semgrep PVC
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "{{ keos_kubeconfig_path }}"
+    template: pvc.yaml.j2
+  vars:
+    pvc_name: "{{ semgrep.volume.name }}"
+    pvc_namespace: "{{ jenkins_namespace }}"
+    pvc_access_mode: "{{ semgrep.volume.access_mode }}"
+    pvc_size: "{{ semgrep.volume.size }}"
+    pvc_storage_class: "{{ semgrep.volume.storage_class }}"
+
+# Create {{ binaries_volume.name }} PVC with neccesary files
+- name: Create {{ binaries_volume.name }}
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "{{ keos_kubeconfig_path }}"
+    template: pvc.yaml.j2
+  vars:
+    pvc_name: "{{ binaries_volume.name }}"
+    pvc_namespace: "{{ jenkins_namespace }}"
+    pvc_access_mode: "{{ binaries_volume.access_mode }}"
+    pvc_size: "{{ binaries_volume.size }}"
+    pvc_storage_class: "{{ binaries_volume.storage_class }}"
+
+- name: Create Temporal Pod for {{ binaries_volume.name }}
+  kubernetes.core.k8s:
+    state: present
+    wait: yes
+    kubeconfig: "{{ keos_kubeconfig_path }}"
+    template: kubectlbinariesvolumepvc-temporal-pod.yaml.j2
+
+- name: Add wget on Temporal Pod
+  shell: "kubectl --kubeconfig {{ keos_kubeconfig_path }} -n {{ jenkins_namespace }} exec temporal-pod  -- apk --no-cache add wget"
+
+- name: Download binaries on {{ binaries_volume.name }}
+  shell: "kubectl --kubeconfig {{ keos_kubeconfig_path }} -n {{ jenkins_namespace }} exec temporal-pod  -- wget {{ item }} -P /data"
+  with_items:
+    - "{{ download_url.kubectl }}"
+    - "{{ download_url.buildkit.tgz }}"
+
+- name: Rename tgz from linux to kubectl-buildkit
+  shell: "kubectl --kubeconfig {{ keos_kubeconfig_path }} -n {{ jenkins_namespace }} exec temporal-pod  -- mv /data/linux-v{{ buildkit.version }}.tgz /data/kubectl-buildkit-v{{ buildkit.version }}.tgz"
+
+- name: Delete Temporal Pod for {{ binaries_volume.name }}
+  kubernetes.core.k8s:
+    state: absent
+    wait: yes
+    kubeconfig: "{{ keos_kubeconfig_path }}"
+    template: kubectlbinariesvolumepvc-temporal-pod.yaml.j2
+
+## Develop: automatizar la conf en pure para backups de este volumen
+- name: Create Jenkins PVC
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "{{ keos_kubeconfig_path }}"
+    template: jenkins-pvc.yaml.j2
+
+- name: Get Jenkins PVC
+  shell: "kubectl --kubeconfig {{ keos_kubeconfig_path }} get pvc -n {{ jenkins_namespace }} | grep jenkins-volume"
+  register: newjenkinsvol
+  when: oldjenkins_vol is defined
+  delegate_to: localhost
+
+- name: Command we are going to execute on Pure
+  debug:
+    msg: "purevol copy {{oldjenkins_vol | default(default_oldjenkins_vol)}} {{pureprefix}}{{newjenkinsvol.stdout.split()[2]}} --overwrite"
+  when: oldjenkins_vol is defined
+  delegate_to: localhost
+
+- name: Copy volume from old Jenkins PVC
+  shell: sshpass -p {{ ansibledev_pass }} ssh -o StrictHostKeyChecking=no ansibledev@pure.int.stratio.com purevol copy {{oldjenkins_vol | default(default_oldjenkins_vol)}} {{pureprefix}}{{newjenkinsvol.stdout.split()[2]}} --overwrite
+  when: oldjenkins_vol is defined
+  delegate_to: localhost
+
+
+- name: Create Maven PVC
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "{{ keos_kubeconfig_path }}"
+    template: pvc.yaml.j2
+  vars:
+    pvc_name: "{{ maven.volume.name }}"
+    pvc_namespace: "{{ jenkins_namespace }}"
+    pvc_access_mode: "{{ maven.volume.access_mode }}"
+    pvc_size: "{{ maven.volume.size }}"
+    pvc_storage_class: "{{ maven.volume.storage_class }}"
+
+- name: Create Grype PVC
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "{{ keos_kubeconfig_path }}"
+    template: pvc.yaml.j2
+  vars:
+    pvc_name: "{{ grype.volume.name }}"
+    pvc_namespace: "{{ jenkins_namespace }}"
+    pvc_access_mode: "{{ grype.volume.access_mode }}"
+    pvc_size: "{{ grype.volume.size }}"
+    pvc_storage_class: "{{ grype.volume.storage_class }}"
+
+- name: Create Trivy PVC
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "{{ keos_kubeconfig_path }}"
+    template: pvc.yaml.j2
+  vars:
+    pvc_name: "{{ trivy.volume.name }}"
+    pvc_namespace: "{{ jenkins_namespace }}"
+    pvc_access_mode: "{{ trivy.volume.access_mode }}"
+    pvc_size: "{{ trivy.volume.size }}"
+    pvc_storage_class: "{{ trivy.volume.storage_class }}"
+
+- name: Create Jenkins Ingress
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "{{ keos_kubeconfig_path }}"
+    template: jenkins-ingress.yaml.j2
+
+# Cronjob to clean Maven PVC
+- name: Cronjob mvn-cleaner
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "{{ keos_kubeconfig_path }}"
+    template: cronjob-mvncleaner.yaml.j2
+
+# Configmap maven-deployment-recorder-config
+- name: Create configmap maven-deployment-recorder-config
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "{{ keos_kubeconfig_path }}"
+    template: mavenrecorder-configmap.yaml.j2
+    namespace: "{{ jenkins_namespace }}"
+  delegate_to: localhost
+  run_once: true
+
+- name: Add repository Jenkins
+  kubernetes.core.helm_repository:
+    name: "{{ helm_charts.jenkins.repo_name }}"
+    repo_url: "{{ helm_charts.jenkins.repo_url }}"
+
+- name: Deploy Jenkins with helm
+  kubernetes.core.helm:
+    name: "jenkins"
+    chart_ref: "{{ helm_charts.jenkins.repo_name }}/{{ helm_charts.jenkins.chart_name }}"
+    chart_version: "{{ helm_charts.jenkins.chart_version }}"
+    kubeconfig: "{{ keos_kubeconfig_path }}"
+    release_namespace: "{{ jenkins_namespace }}"
+    values: "{{ lookup('template', 'jenkins-values.yaml.j2' ) | from_yaml }}"
+    wait: true
+    wait_timeout: "30m"
+    state: present
+
+- name: Create Jenkins role
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "{{ keos_kubeconfig_path }}"
+    template: jenkins-role.yaml.j2
+
+- name: Create Jenkins rolebinding
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "{{ keos_kubeconfig_path }}"
+    template: jenkins-rolebinding.yaml.j2
+
+- name: Create Jenkins serviceaccount token
+  vars:
+    sa_user: "jenkins"
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "{{ keos_kubeconfig_path }}"
+    template: serviceaccount-token.yaml.j2
+
+- name: Get Jenkins serviceaccount
+  vars:
+    sa_user: "jenkins"
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ keos_kubeconfig_path }}"
+    api_version: v1
+    kind: ServiceAccount
+    name: "{{ sa_user}}"
+    namespace: "{{ jenkins_namespace }}"
+  register: kube_prom_sa
+
+- name: Generate ServiceAccount Yaml to edit
+  become: false
+  copy:
+    content: "{{ kube_prom_sa.resources[0] | to_nice_yaml( indent=4, explicit_start=True) }}"
+    dest: /tmp/sa.yaml
+  when:
+    - '"secrets" not in kube_prom_sa.resources[0]'
+
+- name: Add token reference to sa yaml
+  vars:
+    sa_user: "jenkins"
+  ansible.builtin.blockinfile:
+    path: /tmp/sa.yaml
+    marker :    ""
+    block: |
+      secrets:
+        -   name: {{sa_user}}-token
+  when:
+    - '"secrets" not in kube_prom_sa.resources[0]'
+
+- name: Update Antora Ingress with AWS internal Load Balancer
+  kubernetes.core.k8s:
+    kubeconfig: "{{ keos_kubeconfig_path }}"
+    state: present
+    definition: "{{ lookup('file', '/tmp/sa.yaml' ) | from_yaml }}"
+  when:
+    - '"secrets" not in kube_prom_sa.resources[0]'
+
+- name: Remove temporal ServiceAccount Yaml
+  ansible.builtin.file:
+    path: /tmp/sa.yaml
+    state: absent
+  when:
+    - '"secrets" not in kube_prom_sa.resources[0]'

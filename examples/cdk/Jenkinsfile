@@ -1,0 +1,19 @@
+@Library('libpipelines') _
+
+hose {
+    EMAIL = 'sysinternal'
+    BUILDTOOL = 'docker'
+
+    DEV = { config ->
+        doDockers(conf: config,
+                  dockerImages:
+                    [
+                        [conf: config, dockerfile: 'docker-images/dockerregistry-cleaner/Dockerfile', image: 'dockerregistry-cleaner'],
+                        [conf:config, dockerfile: 'docker-images/mvn-cleaner/Dockerfile', image: 'mvn-cleaner'],
+                        [conf:config, dockerfile: 'docker-images/dockerregistry-api/Dockerfile', image: 'dockerregistry-api'],
+                        [conf:config, dockerfile: 'docker-images/keoscicd-cleaner/Dockerfile', image: 'keoscicd-cleaner'],
+                        [conf:config, dockerfile: 'docker-images/sonarqube-backup/Dockerfile', image: 'sonarqube-backup']
+                    ]
+                 )
+    }
+}

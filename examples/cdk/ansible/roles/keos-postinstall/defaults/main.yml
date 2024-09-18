@@ -1,0 +1,4 @@
+---
+# defaults file 
+# Vars File
+keos_kubeconfig_path: "~/.kube/config"

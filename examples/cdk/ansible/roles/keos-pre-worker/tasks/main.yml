@@ -1,0 +1,232 @@
+---
+## tasks file
+- name: Wait for system to become reachable
+  ansible.builtin.wait_for_connection:
+
+- name: Gather facts for first time
+  ansible.builtin.setup:
+
+- name: Fail if not AlmaLinux
+  fail:
+    msg: "This role should only be run on AlmaLinux 8.7 {{ansible_distribution }} {{ansible_distribution_version}}"
+  when: ansible_distribution != "AlmaLinux" or ansible_distribution_version != "8.7"
+
+- name: Disable Swappiness
+  ansible.posix.sysctl:
+    name: vm.swappiness
+    value: '0'
+    state: present
+
+- name: Install iscsid, multipathd, tar, unzip & python3-pip
+  yum:
+    name:
+      - device-mapper-multipath
+      - iscsi-initiator-utils
+      - tar
+      - unzip
+      - python3-pip
+      - platform-python
+    state: present
+
+- name: Install python purestorage library
+  shell: pip-3 install --upgrade pip &&
+         /usr/bin/pip-3 install purestorage py-pure-client
+
+- name: Install python3-pip
+  yum:
+    name:
+      - python3-pip
+    state: present
+  delegate_to: localhost
+  run_once: yes
+
+- name: Install python purestorage library
+  shell: /usr/bin/pip-3 install purestorage py-pure-client
+  delegate_to: localhost
+  run_once: yes
+
+- name: Get volumes connected to kubewX
+  shell: sshpass -p {{ ansibledev_pass }} ssh -o StrictHostKeyChecking=no ansibledev@pure.int.stratio.com purehost list --connect {{ ansible_hostname }}
+  register: vols_connected
+  delegate_to: localhost
+  ignore_errors: yes
+  when: install_ceph
+
+- name: Print host and volumes we are goint to manipulate
+  debug:
+    msg: "On host: {{ ansible_hostname }} it is going to disconnect and delete volume: {{ item.split()[2] }}"
+  with_items: "{{ vols_connected.stdout_lines }}"
+  when: item.split()[0] == "{{ ansible_hostname }}" and item.split()[2] not in critical_volumes and item.split()[2] != "Vol"  and item.split()[2] not in critical_volumes and install_ceph and cluster == "cicddev"
+  delegate_to: localhost
+  ignore_errors: yes
+
+# This task is used to disconnect volumes before delete them in order to avoid fail on delete task
+# It is should not be necessary because next task delete node and disconnect automatically all volumes that are connnected to it
+# but sometimes this does not happen so it is better to disconnect all and we will make sure them could be removed (maybe it sometimes fails because of pure latency)
+- name: Disconnect volumes mounted on kubewX
+  shell: sshpass -p {{ ansibledev_pass }} ssh -o StrictHostKeyChecking=no ansibledev@pure.int.stratio.com purehost disconnect {{ ansible_hostname }} --vol {{ item.split()[2] }}
+  with_items: "{{ vols_connected.stdout_lines }}"
+  when:
+    - item.split()[0] == ansible_hostname
+    - item.split()[2] not in critical_volumes
+    - item.split()[2] != "Vol"
+    - item.split()[2] not in critical_volumes
+    - install_ceph
+    - cluster == "cicddev"
+  delegate_to: localhost
+  ignore_errors: yes
+
+- name: Delete kubewX on pure
+  purefa_host:
+    host: "{{ ansible_hostname }}"
+    volume: "Kubernetes/CephVolume{{ inventory_hostname_short }}"
+    state: absent
+    fa_url: "{{ pure_hostname }}"
+    api_token: "{{ pure_api }}"
+  delegate_to: localhost
+  ignore_errors: yes
+  when: install_ceph
+
+- name: Delete old volumes mounted on kubewX
+  purefa_volume:
+    name: "{{ item.split()[2] }}"
+    eradicate: yes
+    state: absent
+    fa_url: "{{ pure_hostname }}"
+    api_token: "{{ pure_api }}"
+  with_items: "{{ vols_connected.stdout_lines }}"
+  when:
+    - item.split()[0] == ansible_hostname
+    - item.split()[2] not in critical_volumes
+    - item.split()[2] != "Vol"
+    - item.split()[2] not in critical_volumes
+    - install_ceph
+    - cluster == "cicddev"
+  delegate_to: localhost
+  ignore_errors: yes
+
+- name: Get iscsi iqn
+  shell: cat /etc/iscsi/initiatorname.iscsi | cut -d "=" -f2
+  register: iqn
+
+- name: Create volume CephVolumes in PureStorage
+  purefa_volume:
+    name: "Kubernetes/CephVolume{{ inventory_hostname_short }}"
+    size: 200G
+    fa_url: "{{ pure_hostname }}"
+    api_token: "{{ pure_api }}"
+    state: "present"
+  delegate_to: localhost
+  when: install_ceph
+
+- name: Create hosts in PureStorage
+  purefa_host:
+    fa_url:           "{{ pure_hostname }}"
+    api_token:        "{{ pure_api }}"
+    host:             "{{ ansible_hostname }}"
+    state:            "present"
+    protocol:         "iscsi"
+    volume:           "Kubernetes/CephVolume{{ inventory_hostname_short }}"
+    iqn:
+      - "{{iqn.stdout }}"
+  register: info
+  delegate_to: localhost
+  when: install_ceph
+
+- name: Copy multipath.conf file
+  template:
+    src: "{{role_path}}/files/multipath.conf"
+    dest: "/etc/multipath.conf"
+
+- name: Create host on PureStorage
+  purefa_host:
+    fa_url:           "{{ pure_hostname }}"
+    api_token:        "{{ pure_api }}"
+    host:             "{{ ansible_hostname }}"
+    state:            "present"
+    protocol:         "iscsi"
+    iqn:
+      - "{{iqn.stdout }}"
+  register: info
+  delegate_to: localhost
+  when: not install_ceph
+
+- name: Create hostgroup {{ pure_hostgroup }} if it does not exists on PureStorage
+  purefa_hg:
+    hostgroup:        "{{ pure_hostgroup }}"
+    fa_url:           "{{ pure_hostname }}"
+    api_token:        "{{ pure_api }}"
+    state:            "present"
+  delegate_to: localhost
+
+- name: Add hosts to host group {{ pure_hostgroup }} on PureStorage
+  purefa_hg:
+    hostgroup:        "{{ pure_hostgroup }}"
+    fa_url:           "{{ pure_hostname }}"
+    api_token:        "{{ pure_api }}"
+    host:             "{{ ansible_hostname }}"
+    state:            "present"
+  delegate_to: localhost
+
+- name: Restart multipathd and iscsid services
+  systemd:
+    name: "{{ item }}"
+    state: started
+    daemon_reload: yes
+    enabled: yes
+  with_items:
+    - iscsid
+    - multipathd
+
+- name: Discover targets on portal and login to the one available
+  shell: "iscsiadm -m discovery -t sendtargets -p 10.140.0.100"
+  when: install_ceph
+
+- name: Download nexus certificate
+  shell: echo quit | openssl s_client -showcerts -servername {{nexus_url}}  -connect {{nexus_url}} > /tmp/nexus-pre.pem
+
+- name: Copy nexus certificate ca-trusted directory
+  copy:
+    src: /tmp/nexus-pre.pem
+    dest: /etc/pki/ca-trust/source/anchors/
+    remote_src: yes
+
+- name: Update ca-trusted
+  shell: update-ca-trust
+
+- name: Reboot host and wait for it to restart
+  reboot:
+    msg: "Reboot initiated by Ansible"
+    connect_timeout: 5
+    reboot_timeout: 600
+    pre_reboot_delay: 0
+    post_reboot_delay: 30
+    test_command: whoami
+  when: install_ceph
+
+- name: Get ceph iscsi disk id
+  shell: multipath -ll | head -n1 | awk -F['(',')'] '{print $1}' | cut -d " " -f1
+  register: disk_id
+  when: install_ceph
+
+- name: Fail if ceph iscsi disk id is empty
+  fail:
+    msg: "This role should only be run on CentOS 8"
+  when: disk_id == "" and install_ceph
+
+- name: Add ceph disk id to blacklist
+  lineinfile:
+    path: /etc/multipath.conf
+    regexp: '^(.*)wwid diskinblacklist(.*)$'
+    line: "wwid {{ disk_id.stdout }}"
+    backrefs: yes
+  when: install_ceph
+
+- name: Reboot host and wait for it to restart
+  reboot:
+    msg: "Reboot initiated by Ansible"
+    connect_timeout: 5
+    reboot_timeout: 600
+    pre_reboot_delay: 0
+    post_reboot_delay: 30
+    test_command: whoami

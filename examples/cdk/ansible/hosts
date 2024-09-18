@@ -1,0 +1,14 @@
+### HOSTS ###
+[CICD]
+kubew2.int.stratio.com
+kubew3.int.stratio.com
+kubew4.int.stratio.com
+kubew5.int.stratio.com
+kubew8.int.stratio.com
+kubecancer.int.stratio.com
+kubegeminis.int.stratio.com
+
+[CICDDEV]
+kubew1-dev.labs.stratio.com
+kubew2-dev.labs.stratio.com
+kubew3-dev.labs.stratio.com

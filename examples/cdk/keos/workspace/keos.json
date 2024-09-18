@@ -1,0 +1,35 @@
+{
+    "external_registry": {
+        "auth_required": false,
+        "url": "qa.int.stratio.com/stratio"
+    },
+    "infra": {
+        "kube_control_plane": [
+            "10.120.14.102",
+            "10.120.14.103",
+            "10.120.14.104"
+        ],
+        "kube_node": [
+            "10.120.14.164",
+            "10.120.14.165",
+            "10.120.14.166",
+            "10.120.14.105"
+        ],
+        "ssh_user": "operador"
+    },
+    "keos": {
+        "cluster_id": "stratiocicd",
+        "ntp": {
+            "external_servers": [
+                "10.120.0.31"
+            ]
+        },
+        "storage": {
+            "default_storage_class": "local-path",
+            "providers": [
+                "ceph",
+                "local-path"
+            ]
+        }
+    }
+}

@@ -1,0 +1,7 @@
+[CICDDEV]
+kubew1-dev.labs.stratio.com
+kubew2-dev.labs.stratio.com
+kubew3-dev.labs.stratio.com
+
+[CICDBOOT]
+kubeboot.int.stratio.com

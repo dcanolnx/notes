@@ -1,0 +1,19 @@
+---
+- hosts: CICD
+  become: true
+  become_user: root
+  roles:
+  - ../roles/keos-ingress
+  vars:
+    cluster: "cluster"
+    helm_charts:
+      ingress_nginx:
+        # https://github.com/kubernetes/ingress-nginx
+        repo_url: https://kubernetes.github.io/ingress-nginx
+        repo_name: ingress-nginx
+        chart_name: ingress-nginx
+        chart_version: 4.9.1
+    ingress_nginx:
+      namespace: keos-ingress
+      version: 1.9.6
+      replicas: 2

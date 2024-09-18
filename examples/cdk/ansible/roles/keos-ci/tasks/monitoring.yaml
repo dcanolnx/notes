@@ -1,0 +1,43 @@
+---
+- name: Creating namespace keos-monitoring
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "{{ keos_kubeconfig_path }}"
+    definition:
+      api_version: v1
+      kind: Namespace
+      metadata:
+        name: keos-monitoring
+        labels:
+          name: keos-monitoring
+  tags:
+    - monitoring
+
+- name: Add Prometheus helm repository
+  kubernetes.core.helm_repository:
+    name: "{{ helm_charts.prometheus.repo_name }}"
+    repo_url: "{{ helm_charts.prometheus.repo_url }}"
+  tags:
+    - monitoring
+
+- name: Deploy Prometheus stack with helm
+  kubernetes.core.helm:
+    name: "prometheus-stack"
+    kubeconfig: "{{ keos_kubeconfig_path }}"
+    chart_ref: "{{ helm_charts.prometheus.repo_name }}/{{ helm_charts.prometheus.chart_name }}"
+    chart_version: "{{ helm_charts.prometheus.chart_version }}"
+    release_namespace: "keos-monitoring"
+    values: "{{ lookup('file', './files/prometheus-stack-values.yaml' ) | from_yaml }}"
+    wait: true
+    state: present
+    wait_timeout: "10m"
+  tags:
+    - monitoring
+
+- name: Create Ingress for px-prometheus
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "{{ keos_kubeconfig_path }}"
+    definition: "{{ lookup('template', '{{role_path}}/templates/portworx-prometheus-ingress.yaml.j2') | from_yaml }}"
+  tags:
+    - monitoring

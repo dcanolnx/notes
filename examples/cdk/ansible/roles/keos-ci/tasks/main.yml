@@ -1,0 +1,75 @@
+---
+# tasks file
+- name: Get cluster from .kube/config
+  shell: "kubectl --kubeconfig {{ keos_kubeconfig_path }} config current-context | cut -d \"@\" -f2"
+  register: currentcluster
+  failed_when: "cluster not in currentcluster.stdout"
+  tags:
+    - always
+
+- name: Creating namespace "{{ jenkins_namespace }}"
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "{{ keos_kubeconfig_path }}"
+    definition:
+      api_version: v1
+      kind: Namespace
+      metadata:
+        name: "{{ jenkins_namespace }}"
+        labels:
+          name: "{{ jenkins_namespace }}"
+  tags:
+    - always
+
+- name: Apply network policy for "{{ jenkins_namespace }}" namespace
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "{{ keos_kubeconfig_path }}"
+    template: network-policy.yaml.j2
+  tags:
+    - always
+  vars:
+    policy_namespace: "{{ jenkins_namespace }}"
+
+- name: Add wildcard.int.stratio.com to secrets
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "{{ keos_kubeconfig_path }}"
+    template: secret-wildcard_int_stratio_com.yml.j2
+  tags:
+    - always
+
+- name: INSTALL DOCKER-REGISTRY
+  import_tasks: docker-registry.yaml
+  tags:
+    - dockerregistry
+
+- name: INSTALL JENKINS
+  import_tasks: jenkins.yaml
+  tags:
+    - jenkins
+
+- name: INSTALL DOCKER-BUILD
+  import_tasks: docker-build.yaml
+  tags:
+    - dockerbuild
+
+- name: INSTALL BUILD-CACHE-NODE
+  import_tasks: build-cache-node.yaml
+  tags:
+    - buildcachenode
+
+- name: INSTALL REDIS
+  import_tasks: redis.yaml
+  tags:
+    - redis
+
+- name: CONFIGURE MONITORING
+  import_tasks: monitoring.yaml
+  tags:
+    - monitoring
+
+- name: DEPLOY SONARQUBE
+  import_tasks: sonarqube.yaml
+  tags:
+    - sonarqube

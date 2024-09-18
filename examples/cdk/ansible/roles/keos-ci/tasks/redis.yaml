@@ -1,0 +1,122 @@
+---
+- name: Add Redis repository
+  kubernetes.core.helm_repository:
+    name: "{{ helm_charts.redis.repo_name }}"
+    repo_url: "{{ helm_charts.redis.repo_url }}"
+
+- name: Deploy Redis with helm
+  kubernetes.core.helm:
+    name: "redis"
+    chart_ref: "{{ helm_charts.redis.repo_name }}/{{ helm_charts.redis.chart_name }}"
+    chart_version: "{{ helm_charts.redis.chart_version }}"
+    release_namespace: "{{ jenkins_namespace }}"
+    kubeconfig: "{{ keos_kubeconfig_path }}"
+    values: "{{ lookup('template', 'redis-values.yaml' ) | from_yaml }}"
+    wait: true
+    wait_timeout: "10m"
+    state: present
+
+# Create redisson-ext-binaries PVC with neccesary files
+- name: Create redisson-ext-binaries
+  kubernetes.core.k8s:
+    state: present
+    namespace: "{{ jenkins_namespace }}"
+    kubeconfig: "{{ keos_kubeconfig_path }}"
+    template: pvc.yaml.j2
+  vars:
+    pvc_name: "{{ redis.ext_binaries.volume.name }}"
+    pvc_namespace: "{{ jenkins_namespace }}"
+    pvc_access_mode: "{{ redis.ext_binaries.volume.access_mode }}"
+    pvc_size: "{{ redis.ext_binaries.volume.size }}"
+    pvc_storage_class: "{{ redis.ext_binaries.volume.storage_class }}"
+
+- name: Create Temporal Pod for redisson-ext-binaries
+  kubernetes.core.k8s:
+    state: present
+    wait: yes
+    namespace: "{{ jenkins_namespace }}"
+    kubeconfig: "{{ keos_kubeconfig_path }}"
+    template: redissonextbinariesvolumepvc-temporal-pod.yaml.j2
+
+- name: Add wget on Temporal Pod
+  shell: "kubectl --kubeconfig {{ keos_kubeconfig_path }} -n {{ jenkins_namespace }} exec temporal-pod-redisson  -- apk --no-cache add wget"
+
+- name: Download jars on redisson-ext-binaries
+  shell: "kubectl --kubeconfig {{ keos_kubeconfig_path }} -n {{ jenkins_namespace }} exec temporal-pod-redisson  -- wget {{ item }} -P /data"
+  with_items:
+    - "{{ download_url.redis_ext_binaries.url }}/{{ download_url.redis_ext_binaries.file }}"
+
+- name: Uncompress tar.gz with jars on redisson-ext-binaries
+  shell: "kubectl --kubeconfig {{ keos_kubeconfig_path }} -n {{ jenkins_namespace }} exec temporal-pod-redisson  -- tar xvf /data/{{ download_url.redis_ext_binaries.file }} -C /data/"
+
+- name: Delete Temporal Pod for redisson-ext-binaries
+  kubernetes.core.k8s:
+    state: absent
+    wait: yes
+    namespace: "{{ jenkins_namespace }}"
+    kubeconfig: "{{ keos_kubeconfig_path }}"
+    template: redissonextbinariesvolumepvc-temporal-pod.yaml.j2
+
+- name: Create configmap maven-redisson-config
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "{{ keos_kubeconfig_path }}"
+    template: redis-redissonconfigmap.yaml.j2
+    namespace: "{{ jenkins_namespace }}"
+  delegate_to: localhost
+  run_once: true
+
+- name: Create Redis serviceaccount token
+  vars:
+    sa_user: "redis-master"
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "{{ keos_kubeconfig_path }}"
+    template: serviceaccount-token.yaml.j2
+
+- name: Get Redis serviceaccount
+  vars:
+    sa_user: "redis-master"
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ keos_kubeconfig_path }}"
+    api_version: v1
+    kind: ServiceAccount
+    name: "{{ sa_user }}"
+    namespace: "{{ jenkins_namespace }}"
+  register: kube_prom_sa
+  failed_when: kube_prom_sa|length == 0
+
+- name: Generate ServiceAccount Yaml to edit
+  become: false
+  copy:
+    content: "{{ kube_prom_sa.resources[0] | to_nice_yaml( indent=4, explicit_start=True) }}" 
+    dest: /tmp/sa.yaml
+  when:
+    - '"secrets" not in kube_prom_sa.resources[0]'
+
+- name: Add token reference to sa yaml
+  vars:
+    sa_user: "redis-master"
+  ansible.builtin.blockinfile:
+    path: /tmp/sa.yaml
+    marker :    ""
+    block: |
+      secrets:
+        -   name: {{sa_user}}-token
+  when:
+    - '"secrets" not in kube_prom_sa.resources[0]'
+
+- name: Update Redis Ingress with AWS internal Load Balancer
+  kubernetes.core.k8s:
+    kubeconfig: "{{ keos_kubeconfig_path }}"
+    state: present
+    definition: "{{ lookup('file', '/tmp/sa.yaml' ) | from_yaml }}"
+  when:
+    - '"secrets" not in kube_prom_sa.resources[0]'
+
+- name: Remove temporal ServiceAccount Yaml
+  ansible.builtin.file:
+    path: /tmp/sa.yaml
+    state: absent
+  when:
+    - '"secrets" not in kube_prom_sa.resources[0]'

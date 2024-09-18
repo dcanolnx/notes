@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: build-cache-node-ingress
+  namespace: "{{ jenkins_namespace }}"
+spec:
+  tls:
+  - hosts:
+    - "{{ buildcache.host }}"
+    secretName: wildcard-int-stratio-com
+  rules:
+  - host: "{{ buildcache.host }}"
+    http:
+      paths:
+        - backend:
+            service:
+              name: build-cache-node
+              port:
+                number: 5071
+          path: /
+          pathType: ImplementationSpecific

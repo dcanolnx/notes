@@ -1,0 +1,99 @@
+- name: Check StorageClass
+  block:
+    - name: Check if '{{ storage_class_name }}' StorageClass check job already exists
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kubeconfig: "{{ keos_kubeconfig_path }}"
+        kind: Job
+        name: "{{ check_storage_class_job_name }}"
+        namespace: "{{ storage_class_namespace }}"
+      register: job_exists
+
+    - name: Delete previous StorageClass '{{ storage_class_name }}' check job if exists
+      kubernetes.core.k8s:
+        state: absent
+        kubeconfig: "{{ keos_kubeconfig_path }}"
+        kind: Job
+        name: "{{ check_storage_class_job_name }}"
+        namespace: "{{ storage_class_namespace }}"
+        wait: yes
+      when:
+        - job_exists | length
+
+    - name: Create PVC on StorageClass '{{ storage_class_name }}'
+      kubernetes.core.k8s:
+        state: present
+        kubeconfig: "{{ keos_kubeconfig_path }}"
+        template: check-storage-class-pvc.yaml.j2
+        wait: yes
+      register: create_test_pvc
+      until: create_test_pvc is not failed
+      delay: "{{ storage_class_check_delay }}"
+      retries: "{{ storage_class_check_retries }}"
+
+    - name: Check StorageClass '{{ storage_class_name }}' PVC availability
+      kubernetes.core.k8s:
+        state: present
+        kubeconfig: "{{ keos_kubeconfig_path }}"
+        template: check-storage-class.yaml.j2
+        wait: yes
+        wait_condition:
+          type: Complete
+          status: true
+        wait_sleep: "{{ storage_class_check_delay }}"
+        wait_timeout: "{{ storage_class_check_delay * storage_class_check_retries }}"
+      register: test_pvc_job_status
+
+  always:
+    - name: Failed creating PVC in StorageClass '{{ storage_class_name }}'
+      fail:
+        msg: |
+          Unable to create PVC StorageClass '{{ storage_class_namespace }}'
+          Please, revise it and resume installation.
+      when:
+        - create_test_pvc is failed
+    - name: Failed writing file to PVC in StorageClass '{{ storage_class_name }}'
+      fail:
+        msg: |
+          '{{ storage_class_namespace }}' StorageClass is not working properly.
+          Please, revise it and resume installation.
+      when:
+        - test_pvc_job_status|default(False) is failed
+
+- name: Clean check {{ storage_class_name }} Job
+  kubernetes.core.k8s:
+    template: check-storage-class.yaml.j2
+    kubeconfig: "{{ keos_kubeconfig_path }}"
+    namespace: "{{ storage_class_namespace }}"
+    state: absent
+    wait: yes
+
+- name: Clean check {{ storage_class_name }} pod
+  kubernetes.core.k8s:
+    kind: Pod
+    kubeconfig: "{{ keos_kubeconfig_path }}"
+    namespace: "{{ storage_class_namespace }}"
+    state: absent
+    label_selectors:
+      - "job-name={{ check_storage_class_job_name }}"
+    wait: yes
+
+- name: Clean check {{ storage_class_name }} PVC
+  kubernetes.core.k8s:
+    template: check-storage-class-pvc.yaml.j2
+    kubeconfig: "{{ keos_kubeconfig_path }}"
+    namespace: "{{ storage_class_namespace }}"
+    state: absent
+    wait: yes
+  register: check_response
+
+- name: Delete StorageClass '{{ storage_class_name }}' check leftovers
+  kubernetes.core.k8s:
+    kind: PersistentVolume
+    kubeconfig: "{{ keos_kubeconfig_path }}"
+    name: "{{ pv_search_response }}"
+    state: absent
+  vars:
+    pv_name_query: "result.spec.volumeName"
+    # noqa jinja[invalid]
+    pv_search_response: "{{ check_response | json_query(pv_name_query) }}"

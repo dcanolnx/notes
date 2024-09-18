@@ -1,0 +1,34 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: keoscicd-cleaner-whitelist
+  namespace: "{{ jenkins_namespace }}"
+data:
+  keoscicd-cleaner-whitelist: "redis-master-0\n
+{{ binaries_volume.name }}\n
+{{ binaries_volume.name }}-ceph\n
+maven-volume\n
+maven-volume-ceph\n
+redisson-ext-binaries\n
+redisson-ext-binaries-ceph\n
+{{ semgrep.volume.name }}\n
+{{ semgrep.volume.name }}-ceph\n
+redis-data-redis-master-0\n
+grype-volume\n
+grype-volume-ceph\n
+build(.*)\n
+redis-headless\n
+redis-master\n
+docker-registry\n
+sonarqube-postgresql-0\n
+sonarqube-sonarqube-0\n
+sonarqube-postgresql\n
+sonarqube-postgresql-headless\n
+sonarqube-sonarqube\n
+data-sonarqube-postgresql-0\n
+trivy-volume\n
+jenkins(.*)\n
+px-(.*)\n
+build-cache-node\n
+helm-operator\n
+docker-registry"

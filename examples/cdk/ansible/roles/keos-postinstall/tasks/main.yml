@@ -1,0 +1,61 @@
+---
+# tasks file
+#####
+# Tasks to add crontab line to clean buildkit namespace
+#####
+- name: Fail if not AlmaLinux
+  fail: 
+    msg: "This role should only be run on AlmaLinux 8.7 {{ansible_distribution }} {{ansible_distribution_version}}"
+  when: ansible_distribution != "AlmaLinux" or ansible_distribution_version != "8.7"
+
+- name: "[Cleaner buildkit namespace] Create crontab temporal file"
+  lineinfile:
+    dest: /tmp/crontab
+    line: "0 * * * * /usr/local/bin/nerdctl rmi $(/usr/local/bin/nerdctl image list --namespace buildkitnew | grep \"[2-9] [days|weeks]* ago\" | awk '{print $1\":\"$2}') --namespace buildkitnew"
+    create: true
+
+- name: "[Cleaner buildkit namespace] Overwrite crontab content"
+  command: crontab /tmp/crontab
+
+- name: "[Cleaner buildkit namespace] Delete temporal file"
+  file:
+    path: /tmp/crontab
+    state: absent
+
+#####
+# Tasks to add keoscicd-cleaner
+#####
+- name: "[keoscicd-cleaner] Create whitelist configmap"
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "{{ keos_kubeconfig_path }}"
+    template: keoscicd-cleaner-whitelist.yaml.j2
+  delegate_to: localhost
+  run_once: yes
+
+- name: "[keoscicd-cleaner] Create secret"
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "{{ keos_kubeconfig_path }}"
+    template: keoscicd-cleaner-secret.yaml.j2
+  delegate_to: localhost
+  run_once: yes
+
+- name: "[keoscicd-cleaner] Create cronjob"
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "{{ keos_kubeconfig_path }}"
+    template: keoscicd-cleaner-cronjob.yaml.j2
+  delegate_to: localhost
+  run_once: yes
+
+#####
+# Tasks to add sonarqube-backup
+#####
+- name: "[sonarqube-backup] Create Sonarqube backup"
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "{{ keos_kubeconfig_path }}"
+    template: sonarqube-backup-cronjob.yaml.j2
+  delegate_to: localhost
+  run_once: yes

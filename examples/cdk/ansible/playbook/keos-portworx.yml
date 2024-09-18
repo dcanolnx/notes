@@ -1,0 +1,11 @@
+---
+- hosts: CICD
+  become: true
+  become_user: root  
+  roles:
+  - ../roles/keos-portworx
+  vars:
+    cluster: "stratiocicd"
+    kubernetes_version: "1.24.4"
+    portworx_user: "b31c6c67-be40-11eb-a2c5-c24e499c7467"
+    portworx_cluster: "cicdportworx-617b320b-f340-4623-a603-3b0b8171d01b"

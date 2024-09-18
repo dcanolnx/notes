@@ -1,0 +1,23 @@
+- name: Create build-cache-node ingress
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "{{ keos_kubeconfig_path }}"
+    template: build-cache-node-ingress.yaml.j2
+
+- name: Create build-cache-node secret config
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "{{ keos_kubeconfig_path }}"
+    template: build-cache-node-config-secret.yaml.j2
+
+- name: Create build-cache-node service
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "{{ keos_kubeconfig_path }}"
+    template: build-cache-node-service.yaml.j2
+
+- name: Create build-cache-node statefulset
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "{{ keos_kubeconfig_path }}"
+    template: build-cache-node-statefulset.yaml.j2

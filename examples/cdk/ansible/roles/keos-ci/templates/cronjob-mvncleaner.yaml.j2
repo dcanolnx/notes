@@ -1,0 +1,25 @@
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: mvn-cleaner
+  namespace: "{{ jenkins_namespace }}"
+spec:
+  schedule: "0 1 * * *"
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: mvn-cleaner
+            image: {{ maven.cleaner.image }}
+            imagePullPolicy: Always
+            volumeMounts:
+              - name: {{ maven.volume.name }}
+                mountPath: /maven
+          volumes:
+          - name: {{ maven.volume.name }}
+            persistentVolumeClaim:
+              claimName: {{ maven.volume.name }}
+          restartPolicy: OnFailure

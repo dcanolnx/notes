@@ -1,0 +1,31 @@
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: sonarqube-backup
+  namespace: keos-ci
+spec:
+  schedule: "0 2 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: jenkins
+          containers:
+            - name: sonarqube-backup
+              image: qa.int.stratio.com/stratio/sonarqube-backup:0.1.0-SNAPSHOT
+              imagePullPolicy: Always
+              resources:
+                requests:
+                  cpu: "1"
+                  memory: "512Mi"
+                limits:
+                  cpu: "10"
+                  memory: "15360Mi"
+              env:
+                - name: KUBECONFIG
+                  value: "/.kube/config"
+                - name: SSH_PASS_BACKUPSONAR
+                  value: {{litio_pass}}
+                - name: PSQL_PASS
+                  value: {{psql_pass}}
+          restartPolicy: OnFailure

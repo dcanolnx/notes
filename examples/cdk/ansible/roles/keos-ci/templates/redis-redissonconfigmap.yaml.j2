@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: maven-redisson-config
+  namespace: "{{ jenkins_namespace }}"
+data:
+  m2.conf: "main is org.apache.maven.cli.MavenCli from plexus.core\n\nset maven.conf
+    default ${maven.home}/conf\n\n[plexus.core]\nload       ${maven.conf}/logging\nload\t
+    \  ${maven.home}/lib/ext/redisson/*.jar\noptionally ${maven.home}/lib/ext/*.jar\nload
+    \      ${maven.home}/lib/*.jar\n"

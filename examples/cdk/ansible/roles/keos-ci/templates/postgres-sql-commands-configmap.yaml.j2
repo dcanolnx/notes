@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: "{{ jenkins_namespace }}"
+  name: postgres-sql-command
+  labels:
+    app: postgres
+data:
+  sqlcommand.sql: "create schema api; create table api.image_team (id serial primary key, image_name text not null UNIQUE, project_name text not null, project_email text, email_flag boolean not null default false); create role web_anon nologin; grant usage on schema api to web_anon; grant select on api.image_team to web_anon; create role authenticator noinherit login password {{ authenticator_password }}; grant web_anon to authenticator; create role anchore_dispatcher_user nologin; grant anchore_dispatcher_user to authenticator; grant usage on schema api to anchore_dispatcher_user; grant all on api.image_team to anchore_dispatcher_user; grant usage, select on sequence api.image_team_id_seq to anchore_dispatcher_user;"
+
+
+
+
+

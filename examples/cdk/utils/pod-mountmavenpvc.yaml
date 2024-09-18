@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: utils-mountmavenpvc
+spec:
+  containers:
+    - name: utils-mountmavenpvc
+      image: qa.int.stratio.com/alpine:3.14
+      volumeMounts:
+        - name: maven-volume
+          mountPath: /maven
+      command: ["sleep"]
+      args: ["3600"]
+  volumes:
+    - name: maven-volume
+      persistentVolumeClaim:
+        claimName: maven-volume

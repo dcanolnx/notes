@@ -1,0 +1,77 @@
+- name: Get control-planes
+  shell: "kubectl --kubeconfig {{ keos_kubeconfig_path }} get nodes -l node-role.kubernetes.io/control-plane=  -o=custom-columns='ADDRESS:.status.addresses[0].address' --no-headers"
+  register: get_control_planes
+  delegate_to: localhost
+
+- name: Set control_planes variable
+  set_fact:
+    control_planes: "{{ get_control_planes.stdout_lines }}"
+
+# This task assumes no control-plane is in the ansible inventory
+- name: Generate Nginx Proxy configuration
+  template:
+    src: "nginx.conf.j2"
+    dest: "/etc/nginx/nginx.conf"
+    owner: root
+    mode: 0755
+    backup: yes
+
+- name: Get checksum from Nginx Proxy configuration
+  stat:
+    path: "/etc/nginx/nginx.conf"
+  register: nginx_proxy_stat
+
+- name: Render template
+  replace:
+    dest: "/etc/kubernetes/manifests/nginx-proxy.yml"
+    regexp: '{{ item.regexp }}'
+    replace: '{{ item.line }}'
+  with_items:
+    - { regexp: '(.*nginx-cfg-checksum: ).*', line: '\1"{{ nginx_proxy_stat.stat.checksum }}"' }
+
+- name: Creating namespace "{{ ingress_nginx.namespace }}"
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "{{ keos_kubeconfig_path }}"
+    definition:
+      api_version: v1
+      kind: Namespace
+      metadata:
+        name: "{{ ingress_nginx.namespace }}"
+        labels:
+          name: "{{ ingress_nginx.namespace }}"
+  delegate_to: localhost
+  when: "ansible_hostname | regex_search('kubew3')"
+
+- name: Apply network policy for "{{ ingress_nginx.namespace }}" namespace
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "{{ keos_kubeconfig_path }}"
+    template: network-policy.yaml.j2
+  tags:
+    - always
+  vars:
+    policy_namespace: "{{ ingress_nginx.namespace }}"
+  delegate_to: localhost
+  when: "ansible_hostname | regex_search('kubew3')"
+
+- name: Add repository ingress-jenkins
+  kubernetes.core.helm_repository:
+    name: "{{ helm_charts.ingress_nginx.repo_name }}"
+    repo_url: "{{ helm_charts.ingress_nginx.repo_url }}"
+  delegate_to: localhost
+  when: "ansible_hostname | regex_search('kubew3')"
+
+- name: Deploy ingress-nginx with helm
+  kubernetes.core.helm:
+    name: "ingress-nginx"
+    chart_ref: "{{ helm_charts.ingress_nginx.repo_name }}/{{ helm_charts.ingress_nginx.chart_name }}"
+    chart_version: "{{ helm_charts.ingress_nginx.chart_version }}"
+    kubeconfig: "{{ keos_kubeconfig_path }}"
+    release_namespace: "{{ ingress_nginx.namespace }}"
+    values: "{{ lookup('template', 'ingress-nginx-values.yaml.j2' ) | from_yaml }}"
+    wait: true
+    wait_timeout: "10m"
+    state: present
+  delegate_to: localhost
+  when: "ansible_hostname | regex_search('kubew3')"

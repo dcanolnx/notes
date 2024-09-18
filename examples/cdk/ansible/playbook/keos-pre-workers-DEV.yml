@@ -1,0 +1,13 @@
+---
+- hosts: CICDDEV
+  become: true
+  gather_facts: no
+  become_user: root
+  roles:
+  - ../roles/keos-pre-worker
+  vars:
+    nexus_url: "qa-pre.int.stratio.com:11443"
+    install_ceph: true
+    critical_volumes: ["kubecicdkubecicd-pvc-JENKINS-DEV"]
+    cluster: cicddev
+

@@ -1,0 +1,90 @@
+- name: Get OS family
+  debug:
+    msg: "{{ ansible_facts['os_family'] }}"
+
+- name: Check local machine SO is based on Debian or RedHat
+  fail: msg="Local SO is not based on Debian"
+  failed_when: ansible_facts['os_family'] != 'Debian' and ansible_facts['os_family'] != 'RedHat'
+
+- name: Get secrets name associated to jenkins serviceaccount
+  kubernetes.core.k8s_info:
+    kind: ServiceAccount
+    namespace: "{{ jenkins_namespace }}"
+    kubeconfig: "{{ keos_kubeconfig_path }}"
+    name: "{{ buildkit.service_account }}"
+  register: sa
+  failed_when: sa.resources|length == 0
+
+- name: Print secret name associated to jenkins serviceaccount
+  ansible.builtin.debug:
+    var: sa.resources[0].secrets[0].name
+
+- name: Check jenkins secret
+  fail: msg="Token should be like jenkins-token and is {{ sa.resources[0].secrets[0].name }}"
+  failed_when: sa.resources[0].secrets[0].name.find("jenkins-token")
+
+- name: Get all secrets on {{ jenkins_namespace }}
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ keos_kubeconfig_path }}"
+    kind: secrets
+    namespace: "{{ jenkins_namespace }}"
+  register: tokens
+
+- name: Get token associated to jenkins secret
+  debug:
+    msg: "{{ tokens | json_query(query) }}"
+  vars:
+    query: "resources[?metadata.name=='{{ sa.resources[0].secrets[0].name }}'].data.token"
+  register: tokenjenkins
+
+- name: Decode base64 token
+  shell: "echo \"{{ tokenjenkins.msg[0] }}\" | base64 -d "
+  register: tokendecoded
+
+# - name: Register decoded base64 token
+#   debug:
+#     msg: "{{ tokendecoded.stdout }}"
+
+- name: Get a list of all pods from any namespace
+  kubernetes.core.k8s_info:
+    namespace: "{{ jenkins_namespace }}"
+    kubeconfig: "{{ keos_kubeconfig_path }}"
+    api_key: "{{ tokendecoded.stdout }}"
+    kind: Pod
+  register: pod_list
+
+# - name: Register decoded base64 token
+#   debug:
+#     msg: "{{ pod_list }}"
+
+- name: Configure credentials of jenkins user
+  shell: "kubectl --kubeconfig {{ keos_kubeconfig_path }} config set-credentials jenkins --token={{ tokendecoded.stdout }}"
+
+- name: Create configmap with jenkinspre.pem
+  shell: "kubectl --kubeconfig {{ keos_kubeconfig_path }} create configmap jenkinspre-certs --from-file=\"{{role_path}}/files/jenkinspre.pem\" -n {{ jenkins_namespace }}"
+  ignore_errors: yes
+
+- name: Download deb buildkit on localhost
+  get_url:
+    url: "{{ package_file }}"
+    dest: "/tmp/buildkit.{{ extension }}"
+    mode: '0440'
+  vars:
+    deb_package: "{{ download_url.buildkit.deb }}"
+    rpm_package: "{{ download_url.buildkit.rpm }}"
+    package_file: "{{ deb_package if ansible_facts.os_family == 'Debian' else rpm_package if ansible_facts.os_family == 'RedHat' }}"
+    extension: "{{ 'rpm' if ansible_facts.os_family == 'RedHat' else 'deb' if ansible_facts.os_family == 'Debian' }}"
+
+- name: Install buildkit
+  apt:
+    deb: /tmp/buildkit.deb
+  when: ansible_facts['os_family'] == 'Debian'
+
+- name: Install buildkit
+  yum:
+    name: /tmp/buildkit.rpm
+    state: present
+  when: ansible_facts['os_family'] == 'RedHat'
+
+- name: Deploy buildkit on k8s PRE
+  shell: "kubectl buildkit --kubeconfig {{ keos_kubeconfig_path }} create --replicas {{ buildkit.replicas }} --insecure-skip-tls-verify --user jenkins --config {{role_path}}/files/docker-build-pre.toml --runtime=containerd --custom-config=jenkinspre-certs -n {{ jenkins_namespace }}"

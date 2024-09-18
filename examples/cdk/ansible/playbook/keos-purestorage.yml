@@ -1,0 +1,10 @@
+---
+- hosts: CICD
+  become: true
+  become_user: root  
+  roles:
+  - ../roles/keos-purestorage
+  vars:
+    # You can configure it empty and ansible will generate one randomly
+    # If you want to reinstall you should configure previous pso_name and volumes will be reused instead of create new ones
+    pso_name: "kubecicd"

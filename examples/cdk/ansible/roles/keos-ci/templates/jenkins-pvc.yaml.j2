@@ -1,0 +1,14 @@
+{% if jenkins.persistence.enabled | default(True) | bool %}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: "{{ jenkins.persistence.existingClaim }}"
+  namespace: "{{ jenkins_namespace }}"
+spec:
+  accessModes:
+    - "{{ jenkins.persistence.accessMode }}"
+  resources:
+    requests:
+      storage: "{{ jenkins.persistence.size }}"
+  storageClassName: pure-block
+{% endif %}

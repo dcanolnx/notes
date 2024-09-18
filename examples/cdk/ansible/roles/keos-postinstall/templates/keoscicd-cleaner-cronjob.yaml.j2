@@ -1,0 +1,34 @@
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: keoscicd-cleaner-py
+  namespace: {{ jenkins_namespace }}
+spec:
+  schedule: "0 1 * * *"
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: jenkins
+          containers:
+            - name: keoscicd-cleaner
+              image: qa.int.stratio.com/stratio/keoscicd-cleaner:0.1.0-SNAPSHOT
+              imagePullPolicy: Always
+              volumeMounts:
+                - name: keoscicd-cleaner-whitelist
+                  mountPath: /keoscicd-cleaner-whitelist
+              env:
+                - name: NAMESPACE
+                  value: keos-ci
+                - name: MAILPASS
+                  valueFrom:
+                    secretKeyRef:
+                      name: mail-pass
+                      key: password
+          volumes:
+            - name: keoscicd-cleaner-whitelist
+              configMap:
+                name: keoscicd-cleaner-whitelist
+          restartPolicy: OnFailure

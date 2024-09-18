@@ -1,0 +1,10 @@
+---
+- hosts: CICD
+  become: true
+  become_user: root  
+  roles:
+  - ../roles/keos-pre-worker
+  vars:
+    nexus_url: "jenkinspre.labs.stratio.com:11443"
+    install_ceph: true
+    critical_volumes: ["kubecicdkubecicddev-pvc-e45de2fa-0aed-41aa-8cbc-c267eb2112e5","kubecicdkubecicd-pvc-4f8ce35f-b1bc-4f9d-97d2-5b4cda5005e7"]

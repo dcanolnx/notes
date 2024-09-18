@@ -1,0 +1,28 @@
+# Example buildkitd.toml configuration for a local insecure registry
+# Initialize buildkit with:
+#
+#  kubectl buildkit create --config ./local-registry-buildkitd.toml
+debug = true
+[worker.containerd]
+  namespace = "buildkit"
+[registry."docker-registry:5000"]
+  http = true
+  insecure = true
+[registry."jenkinspre.labs.stratio.com:15010"]
+  insecure = true
+  ca = ["/etc/config/jenkinspre.pem"]
+[registry."jenkinspre.labs.stratio.com:15011"]
+  insecure = true
+  ca = ["/etc/config/jenkinspre.pem"]
+[registry."jenkinspre.labs.stratio.com:15012"]
+  insecure = true
+  ca = ["/etc/config/jenkinspre.pem"]
+[registry."jenkinspre.labs.stratio.com:11443"]
+  insecure = true
+  ca = ["/etc/config/jenkinspre.pem"]
+[registry."jenkinspre.labs.stratio.com:10443"]
+  insecure = true
+  ca = ["/etc/config/jenkinspre.pem"]
+[registry."jenkinspre.labs.stratio.com:8443"]
+  insecure = true
+  ca = ["/etc/config/jenkinspre.pem"]

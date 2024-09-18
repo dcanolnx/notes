@@ -1,0 +1,7 @@
+check_storage_class_job_name: check-{{ storage_class_name }}
+check_storage_class_pvc_name: "{{ check_storage_class_job_name }}-pvc"
+check_storage_class_pv_name: "{{ check_storage_class_job_name }}-pv"
+storage_class_pvc_access_mode: "ReadWriteOnce"
+storage_class_pvc_size: "1Gi"
+storage_class_check_retries: 50
+storage_class_check_delay: 30

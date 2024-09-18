@@ -1,0 +1,28 @@
+- name: Create Docker Registry PVC
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "{{ keos_kubeconfig_path }}"
+    template: pvc.yaml.j2
+  vars:
+    pvc_name: "{{ docker_registry.volume.name }}"
+    pvc_namespace: "{{ jenkins_namespace }}"
+    pvc_access_mode: "{{ docker_registry.volume.access_mode }}"
+    pvc_size: "{{ docker_registry.volume.size }}"
+    pvc_storage_class: "{{ docker_registry.volume.storage_class }}"
+
+
+- name: Clone docker-registry.helm
+  ansible.builtin.git:
+    repo: "{{ helm_charts.docker_registry.repo_url }}"
+    dest: /tmp/docker-registry.helm
+
+- name: Deploy docker-registry chart from local path
+  kubernetes.core.helm:
+    name: docker-registry
+    kubeconfig: "{{ keos_kubeconfig_path }}"
+    chart_ref: /tmp/docker-registry.helm
+    release_namespace: "{{ jenkins_namespace }}"
+    values: "{{ lookup('template', 'docker-registry-values.yaml.j2' ) | from_yaml }}"
+    wait: true
+    wait_timeout: "10m"
+    state: present

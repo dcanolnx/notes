@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: temporal-pod-redisson
+  namespace: "{{ jenkins_namespace }}"
+spec:
+  containers:
+    - name: temporal-pod-redisson
+      image: alpine:latest
+      volumeMounts:
+        - name: {{ redis.ext_binaries.volume.name}}
+          mountPath: /data
+      command: ["sleep"]
+      args: ["3600"]
+  volumes:
+    - name: {{ redis.ext_binaries.volume.name}}
+      persistentVolumeClaim:
+        claimName: {{ redis.ext_binaries.volume.name}}

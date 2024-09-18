@@ -1,0 +1,41 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  annotations:
+    meta.helm.sh/release-name: jenkins
+    meta.helm.sh/release-namespace: keos-jenkins
+  creationTimestamp: "2021-06-08T08:03:33Z"
+  managedFields:
+  - apiVersion: rbac.authorization.k8s.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:meta.helm.sh/release-name: {}
+          f:meta.helm.sh/release-namespace: {}
+        f:labels:
+          .: {}
+          f:app.kubernetes.io/component: {}
+          f:app.kubernetes.io/instance: {}
+          f:app.kubernetes.io/managed-by: {}
+          f:app.kubernetes.io/name: {}
+          f:helm.sh/chart: {}
+      f:rules: {}
+    manager: Go-http-client
+    operation: Update
+    time: "2021-06-08T08:03:32Z"
+  name: jenkins-custom
+  namespace: "{{ jenkins_namespace }}"
+  resourceVersion: "2814909"
+  selfLink: /apis/rbac.authorization.k8s.io/v1/namespaces/keos-jenkins/roles/jenkins-schedule-agents
+  uid: 14ac7eb6-eae3-469e-91c4-29554162fa97
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch

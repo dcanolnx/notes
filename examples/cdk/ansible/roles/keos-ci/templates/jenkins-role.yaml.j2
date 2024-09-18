@@ -1,0 +1,36 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: jenkins-custom
+  namespace: "{{ jenkins_namespace }}"
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - deployments
+  - pods
+  - pods/exec
+  - secrets
+  - pvc
+  - services
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - delete
+- apiGroups:
+  - "apps"
+  resources:
+  - deployments
+  - replicasets
+  - pvc
+  - services
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - delete

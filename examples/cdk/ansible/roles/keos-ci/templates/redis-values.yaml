@@ -1,0 +1,13 @@
+clusterDomain: stratiocicd.int
+global:
+  storageClass: "px-sharedv4-sc"
+replica:
+  replicaCount: 1
+architecture: standalone
+auth:
+  enabled: false
+commonConfiguration: |-
+  # Enable AOF https://redis.io/topics/persistence#append-only-file
+  appendonly no
+  # Disable RDB persistence, AOF persistence already enabled.
+  save ""

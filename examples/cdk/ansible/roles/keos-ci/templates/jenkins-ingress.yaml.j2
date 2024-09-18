@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: jenkins
+  namespace: "{{ jenkins_namespace }}"
+spec:
+  tls:
+  - hosts:
+    - "{{ jenkins.host }}"
+    secretName: wildcard-int-stratio-com
+  rules:
+  - host: "{{ jenkins.host }}"
+    http:
+      paths:
+      - backend:
+          service:
+            name: jenkins
+            port:
+              number: 8080
+        path: /
+        pathType: ImplementationSpecific

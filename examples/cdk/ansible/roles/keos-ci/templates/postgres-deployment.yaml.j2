@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: "{{ jenkins_namespace }}"
+  name: postgres
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:14.1
+          imagePullPolicy: "IfNotPresent"
+          env:
+            - name: POSTGRES_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: postgres
+                  key: POSTGRES_DB
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: postgres
+                  key: POSTGRES_USER
+          lifecycle:
+            postStart:
+              exec:
+                command: [ "/bin/sh", "-c", "psql -d ${POSTGRES_DB} -U ${POSTGRES_USER} /sqlCommand/sqlcommand.sql" ]
+          ports:
+            - containerPort: 5432
+          envFrom:
+            - configMapRef:
+                name: postgres
+            - secretRef:
+                name: postgres
+          volumeMounts:
+            - mountPath: /var/lib/postgresql/data
+              name: postgredb
+            - mountPath: /sqlCommand
+              name: sqlcommand
+      volumes:
+        - name: postgredb
+          persistentVolumeClaim:
+            claimName: postgres-pv-claim
+        - name: sqlcommand
+          configMap:
+            name: postgres-sql-command

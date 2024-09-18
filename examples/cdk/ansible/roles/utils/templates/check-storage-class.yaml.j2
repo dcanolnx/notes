@@ -1,0 +1,29 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ check_storage_class_job_name }}
+  namespace: "{{ storage_class_namespace }}"
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: check
+        image: alpine:latest
+        command:
+          - "/bin/sh"
+          - "-c"
+          - |
+            set -e
+            for i in {0..2}; do
+              echo "Checking {{ storage_class_name }} storage class @$(date -R)" | tee -a /mnt/{{ storage_class_name }}/check
+              sleep 0.5s
+            done
+        volumeMounts:
+          - name: {{ check_storage_class_pv_name }}
+            mountPath: "/mnt/{{ storage_class_name }}"
+      volumes:
+      - name: {{ check_storage_class_pv_name }}
+        persistentVolumeClaim:
+          claimName: {{ check_storage_class_pvc_name }}

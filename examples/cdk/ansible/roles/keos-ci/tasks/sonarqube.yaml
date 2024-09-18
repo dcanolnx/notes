@@ -1,0 +1,37 @@
+---
+- name: Create Secret for sonarqube
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "{{ keos_kubeconfig_path }}"
+    template: sonarqube-secret.yaml.j2
+  tags:
+    - sonarqube
+
+- name: Add Sonarqube helm repository
+  kubernetes.core.helm_repository:
+    name: "{{ helm_charts.sonarqube.repo_name }}"
+    repo_url: "{{ helm_charts.sonarqube.repo_url }}"
+  tags:
+    - sonarqube
+
+- name: Deploy Sonarqube stack with helm
+  kubernetes.core.helm:
+    name: "sonarqube"
+    kubeconfig: "{{ keos_kubeconfig_path }}"
+    chart_ref: "{{ helm_charts.sonarqube.repo_name }}/{{ helm_charts.sonarqube.chart_name }}"
+    chart_version: "{{ helm_charts.sonarqube.chart_version }}"
+    release_namespace: "{{ jenkins_namespace }}"
+    values: "{{ lookup('template', '{{role_path}}/templates/sonarqube-values.yaml.j2') | from_yaml }}"
+    wait: true
+    state: present
+    wait_timeout: "10m"
+  tags:
+    - sonarqube
+
+- name: Create Ingress for sonarqube
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "{{ keos_kubeconfig_path }}"
+    template: sonarqube-ingress.yaml.j2
+  tags:
+    - sonarqube

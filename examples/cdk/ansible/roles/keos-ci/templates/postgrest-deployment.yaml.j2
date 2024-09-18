@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgrest
+  namespace: "{{ jenkins_namespace }}"
+  labels:
+    app: postgrest
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgrest
+  template:
+    metadata:
+      labels:
+        app: postgrest
+    spec:
+      containers:
+        - name: postgrest
+          image: qa.int.stratio.com/stratio/postgrest-service:0.1.0
+          envFrom:
+            - configMapRef:
+                name: postgrest
+            - secretRef:
+                name: postgrest
+          imagePullPolicy: "Always"
+          ports:
+            - containerPort: 3000
