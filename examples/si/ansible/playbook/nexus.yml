@@ -1,0 +1,7 @@
+---
+- hosts: Nexus
+  #user: root
+  become: true
+  become_user: root
+  roles:
+   - nexus

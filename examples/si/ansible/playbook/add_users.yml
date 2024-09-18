@@ -1,0 +1,11 @@
+---
+- hosts: ldap-aws
+  #user: root
+  become: true
+  become_user: root
+  vars:
+    # Change only to external hosts with new security policies
+    external: false
+    rootlogin: no
+  roles:
+   - users-sysadmin

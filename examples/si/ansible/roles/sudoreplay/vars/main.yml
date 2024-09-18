@@ -1,0 +1,5 @@
+---
+# vars file for sudoreplay
+sudoreplay_ignore:
+    - "/usr/bin/sudoreplay"
+    - "/usr/local/bin/sudoreplay"

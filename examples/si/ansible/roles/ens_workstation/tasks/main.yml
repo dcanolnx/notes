@@ -1,0 +1,274 @@
+---
+# tasks file for ens_workstation
+# 
+## Check if SO is Ubuntu 20.04
+- name: Fail if not Ubuntu
+  fail: 
+    msg: "This role should only be run on Ubuntu 20.04 but SO is {{ansible_distribution }} {{ansible_distribution_version}}"
+  when: ansible_distribution != "Ubuntu" #and ansible_distribution_version != "20.04"
+
+
+## Create unitd stratio-workstation
+- name: Create directory 
+  file:
+    path: /usr/local/stratio
+    state: directory
+    owner: sistemas
+    group: sistemas
+    mode: '0755'
+
+- name: Copy file to remote hosts
+  copy:
+    src: "{{role_path}}/files/stratio-workstation"
+    dest: /usr/local/stratio/stratio-workstation
+    owner: sistemas
+    group: sistemas
+    mode: '0755'
+
+- name: Copy systemd unit file template
+  template:
+    src: stratio-workstation.service.j2
+    dest: /etc/systemd/system/stratio-workstation.service
+
+- name: Enable the systemd unit
+  systemd:
+    name: stratio-workstation.service
+    enabled: yes
+
+- name: Reload systemd
+  systemd:
+    daemon_reload: yes
+
+
+# Apply ISO/ENS rules 
+- name: Gather available local users
+  getent:
+    database: passwd
+
+- name: Users to apply hardening
+  debug:
+    var: item.key
+  loop: "{{ getent_passwd | dict2items }}"
+  when:
+    - item.value[1]|int > 999
+    - item.value[1]|int < 60000
+    - not item.key == "sistemas"
+
+- name: Ensure /etc/dconf/db/gdm.d directory exists
+  file: 
+    path:   "/etc/dconf/db/gdm.d"
+    state:  directory 
+    mode:   0755
+    group:  root
+    owner:  root
+
+- name: Copy file with disclaimer banner
+  template:
+    src:    "{{ role_path }}/templates/01-hide-users.j2"
+    dest:   "/etc/dconf/db/gdm.d/01-hide-users"
+    mode:   0755
+    group:  root
+    owner:  root
+    force:  yes
+
+- name: Copy gdm file to disclaimer banner
+  copy:
+    src:    "{{ role_path }}/files/gdm"
+    dest:   "/etc/dconf/profile/gdm"
+    mode:   0755
+    group:  root
+    owner:  root
+    force:  yes
+
+- name: Install zenity
+  apt:
+    name:
+      - zenity
+    state: present
+    install_recommends: yes
+
+- name: Copy script with login banner
+  template:
+    src:    "{{ role_path }}/templates/login_banner.sh.j2"
+    dest:   "/usr/local/bin/login_banner.sh"
+    mode:   0755
+    group:  root
+    owner:  root
+    force:  yes
+
+- name: Copy desktop to run banner login
+  copy:
+    src:    "{{ role_path }}/files/banner.desktop"
+    dest:   "/etc/xdg/autostart/login-banner.desktop"
+
+- name: Copy user profile to lock screen
+  copy:
+    src:    "{{ role_path }}/files/user"
+    dest:   "/etc/dconf/profile/user"
+  notify:
+    - Update dconf
+
+- name: Ensure /etc/dconf/db/local.d/locks directory exists
+  file: 
+    path:   "/etc/dconf/db/local.d/locks"
+    state:  directory 
+    mode:   0755
+    group:  root
+    owner:  root
+
+- name: "Copy 00-screensaver to lock screen after {{account_lock_inactivity_seconds}} seconds"
+  template:
+    src:    "{{ role_path }}/templates/00-screensaver.j2"
+    dest:   "/etc/dconf/db/local.d/00-screensaver"
+    mode:   0755
+    group:  root
+    owner:  root
+    force:  yes
+  notify:
+    - Update dconf
+
+- name: "Copy screensaver to avoid unlock screen after {{account_lock_inactivity_seconds}} seconds"
+  copy:
+    src:    "{{ role_path }}/files/screensaver"
+    dest:   "/etc/dconf/db/local.d/locks/screensaver"
+    mode:   0755
+    group:  root
+    owner:  root
+  notify:
+    - Update dconf
+
+-  name: Update dconf allways
+   command: /bin/true
+   notify: Update dconf
+
+- name: Copy "/etc/pam.d/common-password" - Set password requirements
+  template:
+    src:    "{{ role_path }}/templates/common-password.j2"
+    dest:   "/etc/pam.d/common-password"
+    mode:   0644
+    group:  root
+    owner:  root
+    backup: yes
+
+- name: Copy "/etc/pam.d/common-auth" - Set auth requirements
+  template:
+    src:    "{{ role_path }}/templates/common-auth.j2"
+    dest:   "/etc/pam.d/common-auth"
+    mode:   0644
+    group:  root
+    owner:  root
+    backup: yes
+
+- name: Copy "/etc/pam.d/common-account" - Set account requirement
+  template:
+    src:    "{{ role_path }}/templates/common-account.j2"
+    dest:   "/etc/pam.d/common-account"
+    mode:   0644
+    group:  root
+    owner:  root
+    backup: yes
+
+- name: Set maximum expiration date for password
+  ansible.builtin.user:
+    name:                 "{{ item.key }}"
+    password_expire_max:  "{{password_maximum_age_days}}"
+  loop: "{{ getent_passwd | dict2items }}"
+  when:
+    - item.value[1]|int > 999
+    - item.value[1]|int < 60000
+    - not item.key == "sistemas"
+
+- name: Set minimum expiration date for password
+  ansible.builtin.user:
+    name:                 "{{ item.key }}"
+    password_expire_min:  "{{password_minimum_age_days}}"
+  loop: "{{ getent_passwd | dict2items }}"
+  when:
+    - item.value[1]|int > 999
+    - item.value[1]|int < 60000
+    - not item.key == "sistemas"
+
+- name: "Ensure ntp set to {{ntp_url}}"
+  lineinfile:
+    path:   "/etc/systemd/timesyncd.conf"
+    regexp: '^#?NTP=.*'
+    line:   "NTP={{ntp_url}}"
+  notify:
+    - Restart ntp
+
+- name: Disable Automatic login for all users
+  lineinfile:
+    path:   "/etc/gdm3/custom.conf"
+    regexp: 'AutomaticLoginEnable=.*'
+    line:   'AutomaticLoginEnable=False'
+
+- name: Disable User list on login
+  lineinfile:
+    path:   "/etc/gdm3/greeter.dconf-defaults"
+    regexp: '^(# )?disable-user-list=.*'
+    line:   'disable-user-list=true'
+
+- name: Install auditd
+  apt:
+    name:
+      - auditd
+    state: present
+    install_recommends: yes
+
+- name: Copy 10-base-config.rules to enable pci rules
+  copy:
+    src:    "{{ role_path }}/files/10-base-config.rules"
+    dest:   "/etc/audit/rules.d/10-base-config.rules"
+  notify: Restart auditd
+
+- name: Copy 30-pci-dss-v31.rules to enable pci rules
+  copy:
+    src:    "{{ role_path }}/files/30-pci-dss-v31.rules"
+    dest:   "/etc/audit/rules.d/30-pci-dss-v31.rules"
+  notify: Restart auditd
+
+- name: Install Chrome - Install apt-transport-https
+  ansible.builtin.apt:
+    state:  latest
+    update_cache: true
+  ignore_errors: true
+
+- name: Install Chrome - Add Apt signing key
+  ansible.builtin.apt_key:
+    url:    "https://dl.google.com/linux/linux_signing_key.pub"
+    state: present
+
+- name: Install Chrome - Add repository into sources list
+  ansible.builtin.apt_repository:
+    repo:   deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main
+    state:  present
+    filename: google-chrome
+
+- name: Install Chrome - Install google-chrome-stable
+  ansible.builtin.apt:
+    name:   "google-chrome-stable"
+    state:  latest
+    update_cache: true
+
+- name: Install Chrome - Ensure /etc/opt/chrome/policies/managed directory exists
+  file: 
+    path:   /etc/opt/chrome/policies/managed 
+    state:  directory 
+    mode: 0755
+
+- name: Install Chrome - Copy chrome policy
+  copy:
+    src:    "{{ role_path }}/files/chrome-policy.json"
+    dest:   "/etc/opt/chrome/policies/managed/chrome-policy.json"
+
+- name: Install Firefox - Install Firefox stable
+  apt:
+    name:
+      - firefox
+    state: present
+    install_recommends: yes
+
+- name: Install Firefox- Copy firefox policy
+  copy:
+    src:  "{{ role_path }}/files/firefox-policies.json"
+    dest: "/usr/lib/firefox/distribution/policies.json"

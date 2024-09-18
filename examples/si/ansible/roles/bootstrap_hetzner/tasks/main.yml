@@ -1,0 +1,158 @@
+---
+# tasks file for bootstrap_hetzner
+- name: Gather facts...
+  action: setup
+  ignore_errors: true
+
+- name: Check machine status for rescue mode...
+  shell: hostname | grep -Eq "^rescue$"
+  ignore_errors: true
+  register: rescue
+
+- name: Look for Hetzner's installimage software...
+  stat: path=/root/.oldroot/nfs/install/installimage
+  when: rescue is success
+  register: installimage
+
+- name: Generating and uploading installimage template
+  template: src=install_image.config.j2 dest=/root/installimage.config owner=root group=root mode=0644 force=yes
+  when: rescue is success and installimage.stat.exists
+
+- name: Executing HETZNER installimage... Don't panic, this will take some time!
+  shell: "/root/.oldroot/nfs/install/installimage -a -c /root/installimage.config -K /root/.ssh/authorized_keys"
+  when: rescue is success and installimage.stat.exists
+
+# Stolen from: https://support.ansible.com/hc/en-us/articles/201958037-Reboot-a-server-and-wait-for-it-to-come-back
+# allow to run shell command for 1 second and then forget about it
+- name: Rebooting machine...
+  shell: sleep 2 && shutdown -r now "Ansible remote reboot"
+  async: 1
+  poll: 0
+  ignore_errors: true
+  when: rescue is success and installimage.stat.exists
+
+- name: Waiting for server to come back...
+  local_action: wait_for host="{{ ansible_ssh_host | default(inventory_hostname) }}" port=22 search_regex=OpenSSH state=started delay=60 timeout=300 connect_timeout=10
+  when: rescue is success and installimage.stat.exists
+
+# If not rescue mode then install python2 in case apt is available. Ansible needs same python version as in the controller machine
+- name: Install python2 if not found
+  raw: test -e /usr/bin/python || (test -x /usr/bin/apt && apt -y update && apt install -y python-minimal)
+
+- name: OS is just installed so we need to re-gather facts...
+  action: setup
+  tags: is_hetzner
+
+- name: Check if machine is a Hetzner one
+  shell: grep -Eq Hetzner /etc/hosts
+  ignore_errors: true
+  register: hetzner
+  tags: is_hetzner
+
+- name: Check for mounted partitions
+  shell: findmnt {{item.mount}}
+  when: hetzner is success
+  register: is_mounted
+  with_items: "{{extra_disks|default([])}}"
+  tags: extra_disks
+
+- name: Create partition on extra disks
+  shell: parted -s /dev/{{item.dev}} unit TB mklabel gpt mkpart primary 0 100%
+  when: hetzner is success and is_mounted is failed
+  register: partition_created
+  with_items: "{{extra_disks|default([])}}"
+  tags: extra_disks
+
+- name: Format extra disk partition
+  filesystem: dev="/dev/{{item.dev}}1" fstype=xfs
+  when: partition_created is success and is_mounted is failed
+  register: partition_formated
+  with_items: "{{extra_disks|default([])}}"
+  tags: extra_disks
+
+- name: Mount extra disk formatted partition and add entry to /etc/fstab
+  mount: name={{item.mount}} src="/dev/{{item.dev}}1" fstype=xfs state=mounted
+  when: partition_formated is success and is_mounted is failed
+  with_items: "{{extra_disks|default([])}}"
+  tags: extra_disks
+
+- name: Backup hosts file
+  command: /bin/cp -rp /etc/hosts /etc/hosts.backup
+  when: hetzner is success
+  register: backup_hosts
+  tags: build_etc_hosts
+
+- name: Build hosts file
+  lineinfile:
+    dest: /etc/hosts
+    regexp: "{{item}}$"
+    #line: "{{ hostvars[item]['private_iface'][0]['ip'] | default(hostvars[item]['ansible_ssh_host']) }} {{item}}"
+    line: "{% if hostvars[item]['private_iface'] is defined %}{{hostvars[item]['private_iface'][0]['ip']}} {% else %}{{hostvars[item]['ansible_ssh_host']}} {% endif %}{{item}}"
+    state: present
+  when: hetzner is success and backup_hosts is success and "hostvars[item].ansible_ssh_host is defined" and private_iface is defined
+  with_items: "{{groups[group]}}"
+  tags: build_etc_hosts
+
+- name: Configure private interface...
+  template: src=ifcfg-eth.j2 dest=/etc/sysconfig/network-scripts/ifcfg-{{item.dev}} owner=root group=root mode=0644
+  register: has_private_interfaces
+  when: hetzner is success and private_iface is defined
+  with_items: "{{private_iface|default([])}}"
+  tags: private_interface
+
+- name: Restart network service
+  service: name=network state=restarted enabled=yes
+  when: private_iface is defined and hetzner is success and has_private_interfaces is success
+  tags: private_interface
+
+- name: Modify variables accordingly if OS is Ubuntu
+  set_fact:
+    iptables_config="/etc/iptables/rules.v4"
+    iptables_service="netfilter-persistent"
+  when: ansible_distribution == "Ubuntu"
+  tags: secure_access
+
+- name: Install iptables (RedHat & CentOS)
+  yum: name={{item}} state=latest
+  with_items:
+    - iptables-utils
+    - iptables-services
+  when: iptables is defined and iptables and hetzner is success and ansible_os_family == "RedHat"
+  register: iptables_install
+  tags: secure_access
+
+- name: Install iptables (Ubuntu & Debian)
+  apt: name={{item}} state=latest
+  with_items:
+    - iptables
+    - iptables-persistent
+  when: iptables is defined and iptables and hetzner is success and ansible_distribution == "Ubuntu"
+  register: iptables_install
+  tags: secure_access
+
+- name: Enable iptables service
+  service: name={{iptables_service}} state=started enabled=yes
+  when: iptables is defined and iptables and hetzner is success and iptables_install is success
+  tags: secure_access
+
+- name: Disable firewalld service
+  service: name=firewalld state=stopped enabled=no
+  when: iptables is defined and iptables and hetzner is success
+  ignore_errors: true
+  tags: secure_access
+
+# Disable iptables flush to avoid losing connection due to DROP by default in iptables
+#- name: Purge iptables default rules
+#  command: iptables -F
+#  when: iptables is defined and iptables and hetzner is success and iptables_install is success
+#  tags: secure_access
+
+- name: Configure iptables rules to allow access only from firewall.sources
+  template: src=iptables.j2 dest={{iptables_config}} owner=root group=root mode=0600 force=yes
+  when: iptables is defined and iptables and hetzner is success and iptables_install is success
+  tags: secure_access
+
+- name: Start iptables service
+  service: name={{iptables_service}} state=restarted enabled=yes
+  when: iptables is defined and iptables and hetzner is success and iptables_install is success
+  tags: secure_access

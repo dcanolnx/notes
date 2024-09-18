@@ -1,0 +1,53 @@
+---
+- hosts: all
+  become: yes
+  gather_facts: yes
+  tasks:
+    - name: Get system uptime in minutes
+      command: awk '{print $1/60}' /proc/uptime
+      register: system_uptime
+      changed_when: False
+
+    - name: Define services to monitor
+      set_fact:
+        services_to_monitor:
+          - eea
+          - eraagent
+          - wazuh-agent
+
+    - name: Determine service status and uptime in minutes
+      shell: |
+        STATUS=$(systemctl is-active {{ item }})
+        if [ "$STATUS" = "active" ]; then
+          UPTIME_SECONDS=$(($(date +%s) - $(systemctl show -p ActiveEnterTimestamp {{ item }} | cut -d'=' -f2 | xargs -I {} date -d {} +%s)))
+          UPTIME_MINUTES=$((UPTIME_SECONDS / 60))
+          echo "${STATUS},${UPTIME_MINUTES}"
+        else
+          echo "${STATUS},0"
+        fi
+      register: services_status
+      loop: "{{ services_to_monitor }}"
+      changed_when: False
+      ignore_errors: True
+
+    - name: Get xz version
+      command: /home/linuxbrew/.linuxbrew/bin/xz --version
+      register: xz_version
+      changed_when: False
+      ignore_errors: True
+
+    - name: Write header to log file
+      lineinfile:
+        path: "/security/compliance_log/{{ ansible_hostname }}.log"
+        line: "Hostname, System Uptime (minutes), EEA Status, EEA Uptime (minutes), ERAAGENT Status, ERAAGENT Uptime (minutes), WAZUH-AGENT Status, WAZUH-AGENT Uptime (minutes)"
+        insertbefore: BOF
+        create: yes
+      delegate_to: localhost
+      run_once: true
+
+    - name: Prepare and write log entries including xz version
+      lineinfile:
+        path: "/security/compliance_log/{{ ansible_hostname }}.log"
+        line: "{{ ansible_hostname }}, {{ system_uptime.stdout | float | round(2) }}, {% for service in services_status.results %}{% set service_parts = service.stdout.split(',') %}{{ service.item | replace('-', '') | upper }} {{ service_parts[0] }}, {% if service_parts[0] == 'active' %}{{ service_parts[1] }}{% else %}0{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}, XZ Version: {{ xz_version.stdout_lines.0 if xz_version.stdout_lines else 'unknown' }}"
+        create: yes
+      delegate_to: localhost

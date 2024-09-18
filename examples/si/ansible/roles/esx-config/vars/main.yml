@@ -1,0 +1,22 @@
+---
+# vars file for esx-config
+    vcenter_hostname: vcenter.int.stratio.com
+    vcenter_username: administrator@vsphere.local
+    vcenter_password: 
+    ESX:
+      esx03:	
+        IP_management: 
+        IP_vmotion: 
+        IP_storage1: 
+        IP_storage2: 
+        VMNIC_vSwitch0_admon1: 
+        VMNIC_vSwitch0_admon2: 
+        VMNIC_vSwitch1_storage1: 
+        VMNIC_vSwitch1_storage2: 
+    vSwitch0: 
+      VM Network:
+       VLAN_number: 
+    vSwitch0: 
+      VM Network:
+       VLAN_number: 
+    VLAN_vSwitch2: Aislada

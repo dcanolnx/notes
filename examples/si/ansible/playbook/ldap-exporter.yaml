@@ -1,0 +1,6 @@
+---
+- hosts: ldap1
+  become: true
+  become_user: root
+  roles:
+   - ldap-exporter

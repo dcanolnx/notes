@@ -1,0 +1,10 @@
+---
+# ldap_uri: ldap://potasio.int.stratio.com
+# ldap_server: 10.120.0.19
+# ldap_bind_dn: cn=Manager_read,ou=Administrators,ou=Users,dc=stratio,dc=com
+# #ldap_password: 
+# ldap_search_base: "dc=stratio,dc=com"
+# ldap_access_filter: memberOf=cn=Sistemas,ou=Internal,ou=Groups,dc=stratio,dc=com
+# ldap_user_search_base: ou=Others,ou=Spain,ou=Internal,ou=Users,dc=stratio,dc=com
+# ldap_group_search_base: ou=Internal,ou=Groups,dc=stratio,dc=com
+# ldap_sudo_search_base: ou=Sudoers,dc=stratio,dc=com

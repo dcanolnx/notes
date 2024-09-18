@@ -1,0 +1,50 @@
+---
+# tasks file for ldap_exporter
+
+- name: Ensure group {{ldap_exporter_group}} existance
+  group: name={{ldap_exporter_group}} state=present
+  become: yes
+  tags: [exporters]
+
+- name: Add user {{ldap_exporter_user}}
+  user: name={{ldap_exporter_user}} group={{ldap_exporter_group}} comment="{{ldap_exporter_description}}" shell=/sbin/nologin home={{ldap_exporter_home}}
+  become: yes
+  ignore_errors: yes
+  tags: [exporters]
+
+- name: Download ldap_exporter
+  get_url:
+    url: "{{ldap_exporter_url}}"
+    dest: "/tmp/openldap_exporter-linux-amd64.gz"
+    timeout: 100
+  become: yes
+  register: ldap_exporter_downloaded
+  tags: [ldap_exporter]
+
+
+- name: Unpack ldap_exporter
+  shell: "gzip -fd /tmp/openldap_exporter-linux-amd64.gz && mv /tmp/openldap_exporter-linux-amd64 /usr/local/bin/ldap_exporter && chmod 755 /usr/local/bin/ldap_exporter"
+  register: ldap_exporter_unpack
+  tags: [ldap_exporter]
+
+- name: Configure selinux 
+  shell: "semanage fcontext -a -t bin_t \"/usr/local/bin/ldap_exporter\" && restorecon -v /usr/local/bin/ldap_exporter"
+  ignore_errors: true
+
+- name: Create {{ldap_exporter_servicename}} systemd's unit
+  template:
+     src=ldap_exporter-systemd.j2
+     dest=/etc/systemd/system/{{ldap_exporter_servicename}}.service
+     owner=root group=root mode=644
+  become: yes
+  tags: [ldap_exporter]
+
+- name: Update systemd's configuration
+  shell: systemctl daemon-reload
+  become: yes
+  tags: [ldap_exporter]
+
+- name: Enable and start {{ldap_exporter_servicename}}
+  service: name={{ldap_exporter_servicename}} state=restarted enabled=yes
+  become: yes
+  tags: [ldap_exporter,restart]

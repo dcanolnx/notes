@@ -1,0 +1,20 @@
+/var/log/cron
+/var/log/maillog
+/var/log/messages
+/var/log/secure
+/var/log/spooler
+{
+    missingok
+    dateext
+    daily
+    compress
+    sharedscripts    
+    maxage 181
+    rotate 181
+    notifempty
+    size +4096k
+    create 600 root root
+    postrotate
+	    /bin/kill -HUP `cat /var/run/syslogd.pid 2> /dev/null` 2> /dev/null || true
+    endscript
+}

@@ -1,0 +1,149 @@
+---
+# tasks file for ens_workstation
+
+- name: Download startup script
+  ansible.builtin.get_url:
+    url:    https://start.stratio.com/mac
+    dest:   /etc/script.sh
+    url_username: script
+    url_password: eGpGyyjwS7H7qzxHRN
+    mode: '0777'
+
+- name: Remove Install Python3 from script
+  ansible.builtin.lineinfile:
+    path:   /etc/script.sh
+    state:  absent
+    regexp: '^brew install python3'
+
+- name: Execute startup script
+  ansible.builtin.shell: /etc/script.sh
+
+- name: Gather available local users
+  shell: 'dscl . list /Users | grep -v "^_"'
+  register: mac_users
+
+- name: Users to apply hardening
+  debug:
+    var: item
+  with_items: "{{ mac_users.stdout_lines }}"
+  when:
+    - not item == "daemon"
+    - not item == "nobody"
+    - not item == "root"
+    - 'not "eset" in item'
+    - not item == "sistemas"
+
+# - name: Hide users from login screen - doesn't work if FileVault is enable
+#   shell: 'sudo dscl . create /Users/{{item}} IsHidden 1'
+#   with_items: "{{ mac_users.stdout_lines }}"
+#   when:
+#     - not item == "daemon"
+#     - not item == "nobody"
+#     - not item == "root"
+#     - 'not "eset" in item'
+
+- name: Copy file with disclaimer banner
+  template:
+    src:    "{{ role_path }}/templates/login_banner.txt.j2"
+    dest:   "/Library/Security/PolicyBanner.txt"
+    mode:   0755
+    force:  yes
+
+- name: Update the Preboot volume
+  shell: 'diskutil apfs updatePreboot /'
+  ignore_errors: True
+
+- name: "Set NTP server to {{ntp_url}}"
+  shell: '/usr/sbin/systemsetup -setnetworktimeserver "{{ntp_url}}"; /usr/sbin/systemsetup -setusingnetworktime on'
+
+- name: "Turn auto log out on"
+  shell: 'sudo defaults write /Library/Preferences/.GlobalPreferences com.apple.autologout.AutoLogOutDelay -int {{account_lock_inactivity_seconds}}'
+
+- name: "Set auto log out on {{account_lock_inactivity_seconds}} secconds iddle"
+  shell: 'sudo defaults write /Library/Preferences/.GlobalPreferences com.apple.securitypref.logoutvalue -int {{account_lock_inactivity_seconds}}'
+
+- name: Copy file with password policies
+  template:
+    src:    "{{ role_path }}/templates/password_policy.plist.j2"
+    dest:   "/tmp/pwpolicy.plist"
+    mode:   0777
+    group:  staff
+    force:  yes
+
+- name: Clear user password policies
+  shell: 'pwpolicy -u {{item}} -clearaccountpolicies'
+  with_items: "{{ mac_users.stdout_lines }}"
+  when:
+    - not item == "daemon"
+    - not item == "nobody"
+    - not item == "root"
+    - 'not "eset" in item'
+    - not item == "sistemas"
+
+- name: Set user password policies
+  shell: 'pwpolicy -u {{item}} -setaccountpolicies /tmp/pwpolicy.plist'
+  with_items: "{{ mac_users.stdout_lines }}"
+  when:
+    - not item == "daemon"
+    - not item == "nobody"
+    - not item == "root"
+    - 'not "eset" in item'
+    - not item == "sistemas"
+
+- name: Update homebrew first and install zenity
+  become_user: "{{item}}"
+  community.general.homebrew:
+    name: 
+        - zenity
+        - brew-cask
+    state: present
+    update_homebrew: true
+  ignore_errors: true
+  with_items: "{{ mac_users.stdout_lines }}"
+  when:
+    - not item == "daemon"
+    - not item == "nobody"
+    - not item == "root"
+    - 'not "eset" in item'
+    - not item == "sistemas"
+
+- name: Ensure /Library/LaunchAgents/ directory exists
+  file: 
+    path:   "/Library/LaunchAgents/"
+    state:  directory 
+    mode:   0755
+    owner:  root
+    group:  wheel
+
+- name: Copy user loginscript plist 
+  template:
+    src:    "{{ role_path }}/templates/com.user.loginscript.plist.j2"
+    dest:   "/Library/LaunchAgents/com.user.loginscript.plist"
+    mode:   0644
+    owner:  root
+    group:  wheel
+  with_items: "{{ mac_users.stdout_lines }}"
+  when:
+    - not item == "daemon"
+    - not item == "nobody"
+    - not item == "root"
+    - 'not "eset" in item'
+    - not item == "sistemas"
+
+- name: Copy user loginscript 
+  template:
+    src:    "{{ role_path }}/templates/login_banner.sh.j2"
+    dest:   "/Users/{{item}}/Documents/.login_banner.command"
+    mode:   0777
+    owner:  "{{item}}"
+    group:  staff
+  with_items: "{{ mac_users.stdout_lines }}"
+  when:
+    - not item == "daemon"
+    - not item == "nobody"
+    - not item == "root"
+    - 'not "eset" in item'
+    - not item == "sistemas"
+
+- name: Load login script
+  shell: 'launchctl load /Library/LaunchAgents/com.user.loginscript.plist'

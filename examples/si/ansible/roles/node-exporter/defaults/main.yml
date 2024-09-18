@@ -1,0 +1,11 @@
+---
+# defaults file for node-exporter
+node_exporter_installdir:   "/usr/local/bin"
+#node_exporter_version: 1.6.1
+node_exporter_url:          "https://github.com/prometheus/node_exporter/releases/download/v{{node_exporter_version}}/node_exporter-{{node_exporter_version}}.linux-amd64.tar.gz"
+node_exporter_group:        stratio
+node_exporter_user:         exporters
+node_exporter_servicename:  nodexporter
+node_exporter_description:  "Prometheus node-exporter"
+node_exporter_systemd:      True
+node_exporter_home:         "/home/exporters"

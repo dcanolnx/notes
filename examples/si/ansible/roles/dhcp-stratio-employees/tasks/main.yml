@@ -1,0 +1,69 @@
+---
+# tasks file for dhcp-stratio-employees
+- name: Install Dependencies
+  package:
+    name: dhcp
+    state: latest
+
+- name: Create dhcp directory
+  file:
+    path: /opt/dhcp
+    state: directory
+    mode: 0775
+
+- name: Create network directory
+  file:
+    path: /opt/dhcp/{{ item.key }}
+    state: directory
+    mode: 0775
+  with_dict: "{{ networks }}"
+
+- name: Add the 802.1q module
+  modprobe:
+    name: 8021q
+    state: present
+
+- name: Copy ifcfg-{{ interface_name }} files
+  template:
+    src: ifcfg-name.vlan.j2
+    dest: /etc/sysconfig/network-scripts/ifcfg-{{ interface_name }}.{{ item.value.vlan }}
+    owner: root 
+    group: root 
+    mode: 644
+  with_dict: "{{ networks }}"
+
+- name: Up all Interfaces
+  command: "ifup {{ interface_name }}.{{ item.value.vlan }}"
+  with_dict: "{{ networks }}"
+
+- name: Copy systemd DHCP unit files
+  template:
+    src=dhcp_net.service.j2
+    force=yes
+    dest=/etc/systemd/system/dhcp_{{ item.key }}.service
+    owner=root group=root mode=644
+  with_dict: "{{ networks }}"
+
+- name: Copy dhcp configurations
+  template:
+    src=dhcp.conf.j2
+    force=yes
+    dest=/opt/dhcp/{{ item.key }}/dhcpd.conf
+    owner=root group=root mode=644
+  with_dict: "{{ networks }}"
+
+- name: Ansible create file if it doesn't exist example
+  file:
+    path=/opt/dhcp/{{ item.key }}/dhcpd.leases
+    state=touch
+  with_dict: "{{ networks }}"
+
+- name: Start and enable dhcp units 
+  systemd:
+    name: "dhcp_{{ item.key }}.service"
+    state: started
+    enabled: yes
+    daemon_reload: yes
+  with_dict: "{{ networks }}"
+
+  

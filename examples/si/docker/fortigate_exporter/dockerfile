@@ -1,0 +1,19 @@
+FROM golang:alpine AS build
+
+RUN apk update &&  \
+    apk upgrade && apk add make
+RUN apk add --no-cache git 
+RUN git clone https://github.com/bluecmd/fortigate_exporter.git
+RUN cd /go/fortigate_exporter/ && go get -v -t -d ./ && make build
+
+FROM alpine
+LABEL Description="Fortigate Exporter docker image"
+COPY --from=build /go/fortigate_exporter/target/fortigate-exporter /fortigate_exporter
+RUN apk update && \
+    apk upgrade && \
+    apk add --no-cache bash
+
+EXPOSE 9710/tcp
+
+ENTRYPOINT [ "/fortigate_exporter" ]
+CMD [ "-auth-file", "/opt/fortigate-key.yaml" ]

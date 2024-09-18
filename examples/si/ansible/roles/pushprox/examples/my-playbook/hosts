@@ -1,0 +1,16 @@
+bootstrap pushprox_client=no ansible_host=192.168.10.4 ansible_user=operador ansible_port=22 ansile_ssh_private_key_file=/stratio_volume/key.pem
+
+[master]
+master-3 ansible_host=192.168.10.131 ansible_user=operador ansible_port=22 ansible_ssh_private_key_file=/stratio_volume/key.pem
+master-2 ansible_host=192.168.10.130 ansible_user=operador ansible_port=22 ansible_ssh_private_key_file=/stratio_volume/key.pem
+master-1 ansible_host=192.168.10.129 ansible_user=operador ansible_port=22 ansible_ssh_private_key_file=/stratio_volume/key.pem
+
+[agent]
+agent-6 ansible_host=192.168.10.134 ansible_user=operador ansible_port=22 ansible_ssh_private_key_file=/stratio_volume/key.pem
+agent-5 ansible_host=192.168.10.135 ansible_user=operador ansible_port=22 ansible_ssh_private_key_file=/stratio_volume/key.pem
+agent-4 ansible_host=192.168.10.133 ansible_user=operador ansible_port=22 ansible_ssh_private_key_file=/stratio_volume/key.pem
+
+[gosec]
+gosec3 ansible_host=192.168.10.126 ansible_user=operador ansible_port=22 ansible_ssh_private_key_file=/stratio_volume/key.pem
+gosec2 ansible_host=192.168.10.128 ansible_user=operador ansible_port=22 ansible_ssh_private_key_file=/stratio_volume/key.pem
+gosec1 ansible_host=192.168.10.127 ansible_user=operador ansible_port=22 ansible_ssh_private_key_file=/stratio_volume/key.pem

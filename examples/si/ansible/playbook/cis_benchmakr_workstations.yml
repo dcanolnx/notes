@@ -1,0 +1,6 @@
+---
+- hosts: linux-users
+  become: true
+  roles:
+    - do_release
+    - cis_benchmark

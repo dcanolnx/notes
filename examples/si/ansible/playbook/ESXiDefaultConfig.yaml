@@ -1,0 +1,88 @@
+---
+# Configuración portgroups esxi
+- hosts: esx09a.stratio.com,esx19a.stratio.com
+  become: true
+  vars:
+    vSwitch:
+       vSwitch1:
+         vmnic: vmnic4
+         MTU: 9000
+       vSwitch3:
+    portgroup:
+      Formacion:
+        vSwitch: vSwitch0
+        VLAN: 150
+      DMZ Stratio:
+        vSwitch: vSwitch0
+        VLAN: 667
+      PDUs:
+        vSwitch: vSwitch0
+        VLAN: 180
+      Red Aislada:
+        vSwitch: vSwitch0
+        VLAN: 69
+      Servidores Stratio:
+        vSwitch: vSwitch0
+        VLAN: 902
+      Labs_Stratio:
+        vSwitch: vSwitch0
+        VLAN: 500
+      iSCSI:
+        vSwitch: vSwitch1
+        VLAN: 120
+        VMkernel: vmk2
+        MTU: 9000
+        IP: 10.140.0.
+      iSCSI2:
+        vSwitch: vSwitch1
+        VLAN: 121
+        VMkernel: vmk3
+        MTU: 9000
+        IP: 10.140.1.
+      vMotion:
+        vSwitch: vSwitch1
+        VLAN: 40
+        VMkernel: vmk1
+        MTU: 1500
+        IP: 10.40.0.
+      Aislada:
+        vSwitch: vSwitch3
+        VLAN: 0
+  tasks:
+    - name: Create vSwitch
+      shell: esxcli network vswitch standard add -v '{{item.key}}'
+      ignore_errors: yes
+      with_dict: "{{vSwitch | default({})}}"
+    - name: Add uplink vSwitch
+      shell: esxcli network vswitch standard uplink add -v '{{item.key}}' -u '{{item.value.vmnic}}'
+      ignore_errors: yes
+      with_dict: "{{vSwitch | default({})}}"
+      when: item.value.vmnic is defined
+    - name: Add MTU vSwitch
+      shell: esxcli network vswitch standard set -v '{{item.key}}' -u '{{item.value.MTU}}'
+      ignore_errors: yes
+      with_dict: "{{vSwitch | default({})}}"
+      when: item.value.MTU is defined
+    - name: Create portgroup
+      shell: esxcli network vswitch standard portgroup add -p '{{item.key}}' -v '{{item.value.vSwitch}}'
+      with_dict: "{{portgroup | default({})}}"
+      ignore_errors: yes
+    - name: Configure VLAN portgroup
+      shell: esxcli network vswitch standard portgroup set -p '{{item.key}}' -v '{{item.value.VLAN}}'
+      with_dict: "{{portgroup | default({})}}"
+      ignore_errors: yes
+    - name: register ip
+      shell: esxcli network ip interface ipv4 get |grep vmk0 | awk '{ print $2 }'
+      register: ip
+    - name: debug
+      debug: var=ip.stdout.split('.')[3]
+    - name: Create VMKernel
+      shell: esxcli network ip interface add -i '{{item.value.VMkernel}}' -p '{{item.key}}' -m '{{item.value.MTU}}'
+      with_dict: "{{portgroup | default({})}}"
+      when:  item.value.VMkernel is defined
+      ignore_errors: yes
+    - name: IP  VMKernel
+      shell: esxcli network ip interface ipv4 set -i '{{item.value.VMkernel}}' -I '{{item.value.IP}}''{{ip.stdout.split('.')[3]}}' -N 255.255.255.0 -t static
+      with_dict: "{{portgroup | default({})}}"
+      when: item.value.VMkernel is defined
+      ignore_errors: yes

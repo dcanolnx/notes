@@ -1,0 +1,54 @@
+#
+# DHCP Server Configuration file.
+#   see /usr/share/doc/dhcp*/dhcpd.conf.example
+#   see dhcpd.conf(5) man page
+#
+ 
+#include "/etc/rndc.key";
+ 
+# Actualizacion dinamica DNS
+ddns-updates on;
+ddns-update-style interim;
+ddns-domainname "employees.stratio.com";
+ddns-rev-domainname "in-addr.arpa";
+update-static-leases on;
+update-conflict-detection false;
+option option-128 code 128 = string;
+option option-129 code 129 = text;
+option pxe-system-type code 93 = unsigned integer 16;
+one-lease-per-client true;
+#get-lease-hostnames true;
+ping-check true;
+authoritative;
+ 
+ 
+allow unknown-clients;
+ignore-client-uids true;
+use-host-decl-names on;
+log-facility local7;
+ 
+zone employees.stratio.com. {
+            primary {{ item.value.ifc_ip }},1.1.1.1;
+            #key rndc-key;
+}
+ 
+zone 10.10.10.in-addr.arpa. {
+            primary {{ item.value.ifc_ip }},1.1.1.1;
+            #key rndc-key;
+}
+ 
+#ignore client-updates;
+set vendorclass = option vendor-class-identifier;
+ 
+subnet {{ item.value.range | ipaddr('network') }} netmask {{ item.value.range | ipaddr('netmask') }} {
+    allow booting;
+    allow bootp;
+    #option routers             {{ item.value.gateway }};
+    option domain-name-servers {{ item.value.ifc_ip }};
+    option domain-name         "employees.stratio.com";
+    option subnet-mask         {{ item.value.range | ipaddr('netmask') }};
+    range                      {{ item.value.range | ipaddr('network') }}11 {{ item.value.ifc_ip[:-1] }}250;
+    default-lease-time         -1;
+    max-lease-time             -1;
+    
+} ##End_subnet

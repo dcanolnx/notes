@@ -1,0 +1,35 @@
+---
+# tasks file for logs-to-kafka
+# Install dependencies
+- name: INSTALL RSYSLOG
+  package:
+    name: rsyslog
+    state: present
+  
+- name: CONFIGURE RSYLOG.CONF
+  lineinfile:
+    dest: /etc/rsyslog.conf
+    line: '$IncludeConfig /etc/rsyslog.d/*.conf'
+
+- name: CONFIGURE RSYLOG WITH FILE AND SEND LOGS
+  template:
+    src: "{{ item }}.j2"
+    dest: "/etc/rsyslog.d/{{ item }}"
+    backup: no
+  with_items:
+    - inline.conf
+    - syslog_server.conf
+
+- name: ENABLE AND RESTART RSYSLOG
+  service: 
+    name: rsyslog 
+    state: restarted 
+    enabled: yes
+
+- name: ENABLE HISTORY DATE
+  copy:
+    src: "{{role_path}}/files/history.sh"
+    dest: "/etc/profile.d/history.sh"
+    owner: root
+    group: root
+    mode: '0755'

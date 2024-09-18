@@ -1,0 +1,6 @@
+---
+- name: Deshbilitar update de version do-release
+  replace:
+    path: /etc/update-manager/release-upgrades
+    regexp: 'Prompt.*'
+    replace: 'Prompt=never'

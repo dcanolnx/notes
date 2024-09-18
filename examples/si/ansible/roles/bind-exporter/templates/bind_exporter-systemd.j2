@@ -1,0 +1,12 @@
+[Unit]
+Description={{bind_exporter_description}}
+After=local-fs.target network-online.target network.target
+Wants=local-fs.target network-online.target network.target
+
+[Service]
+Type=simple
+User={{bind_exporter_user}}
+ExecStart={{bind_exporter_installdir}}/bind_exporter 
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,7 @@
+---
+# vars file for forti_workstations
+software_list:
+  - libappindicator1
+  - libgconf-2-4
+  - libindicator7
+  - libnss3-tools

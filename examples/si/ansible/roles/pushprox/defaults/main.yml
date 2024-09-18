@@ -1,0 +1,17 @@
+---
+# defaults file for pushprox
+## Client:
+#pushprox_version: 1.0.1
+pushprox_client:            yes
+pushprox_user:              exporters
+pushprox_group:             stratio
+pushprox_description:       "Prometheus PushProx-Client"
+pushprox_home:              "/home/exporters"
+pushprox_url:               "https://github.com/prometheus-community/PushProx/releases/download/v{{pushprox_version}}/PushProx-{{pushprox_version}}.linux-amd64.tar.gz"
+pushprox_installdir:        "/usr/local/bin"
+pushprox_servicename:       pushprox-client
+
+## Proxy:
+pushprox_proxy_version:         1.0.1
+pushprox_proxy_docker_image:    "sistemasstratio/pushprox-proxy:{{pushprox_proxy_version}}"
+pushprox_proxy_port:            7070

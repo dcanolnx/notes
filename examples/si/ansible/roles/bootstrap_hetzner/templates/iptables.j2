@@ -1,0 +1,29 @@
+# sample configuration for iptables service
+# you can edit this manually or use system-config-firewall
+# please do not ask us to add additional ports/services to this default configuration
+*filter
+:INPUT DROP [0:0]
+:FORWARD DROP [0:0]
+:OUTPUT ACCEPT [0:0]
+-A INPUT -m state --state RELATED,ESTABLISHED -j ACCEPT
+-A INPUT -i lo -j ACCEPT
+{% for source in firewall.sources %}
+-A INPUT -m state --state NEW -s {{source}} -j ACCEPT
+{% endfor %}
+{% if firewall.private_sources is defined %}
+{% for private_source in firewall.private_sources %}
+-A INPUT -m state --state NEW -s {{private_source}} -j ACCEPT
+{% endfor %}
+{% endif %}
+{% if iptables_rules is defined %}
+{% for rule in iptables_rules %}
+-A INPUT -m state --state NEW -s {{rule.ip}} -p {{rule.proto}} --dport {{rule.port}} -j ACCEPT
+{% endfor %}
+{% endif %}
+{% if iptables_custom_rules is defined %}
+{% for custom_rule in iptables_custom_rules %}
+{{custom_rule}}
+{% endfor %}
+{% endif %}
+COMMIT
+

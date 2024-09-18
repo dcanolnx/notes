@@ -1,0 +1,42 @@
+---
+- name: Installing Eset - Laptops
+  hosts: all
+  become: yes
+  vars:
+    url_era_server_security: "https://download.eset.com/com/eset/apps/business/eea/linux/g2/latest/eeau.x86_64.bin"
+    url_era_manager: "http://downloads.int.stratio.com/II/new_PROTECTAgent_10.1.8.sh"
+    route_temp_files: "/var/esettempfiles/"
+    eset_package_name: "new_PROTECTAgent_10.1.8.sh"
+
+  tasks:
+    - name: Create directory
+      shell: mkdir -p "{{ route_temp_files }}"
+      args:
+        creates: "{{ route_temp_files }}"
+
+    - name: Download Era_WK
+      command: "curl -o {{ route_temp_files }}/Era_WK.bin {{ url_era_server_security }}"
+      args:
+        creates: "{{ route_temp_files }}/Era_WK.bin"
+
+    - name: Give execute permissions to the script
+      command: chmod +x "{{ route_temp_files }}/Era_WK.bin"
+
+    - name: Install EFS
+      command: "{{ route_temp_files }}/Era_WK.bin -y -f"
+
+    - name: Download Era_manager
+      command: "curl -o {{ route_temp_files }}/{{ eset_package_name }} {{ url_era_manager }}"
+      args:
+        creates: "{{ route_temp_files }}/{{ eset_package_name }}"
+
+    - name: Give execute permissions to the script
+      command: chmod +x "{{ route_temp_files }}/{{ eset_package_name }}"
+
+    - name: Run the shell script
+      shell: "{{ route_temp_files }}/{{ eset_package_name }}"
+
+    - name: Delete temporary files folder
+      file:
+        path: "{{ route_temp_files }}"
+        state: absent

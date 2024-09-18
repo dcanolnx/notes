@@ -1,0 +1,19 @@
+FROM golang:alpine AS build
+
+RUN apk update &&  \
+    apk upgrade && \
+    apk add --no-cache git && \
+    go get github.com/prometheus-community/PushProx/cmd/proxy && \
+    cd /go/src/github.com/prometheus-community/PushProx/cmd/proxy && \
+    go build
+
+FROM alpine
+LABEL Description="ProxPush proxy docker image"
+COPY --from=build /go/bin/proxy /pushprox-proxy
+RUN apk update && \
+    apk upgrade && \
+    apk add --no-cache bash
+
+EXPOSE 8080/tcp
+
+ENTRYPOINT [ "/pushprox-proxy" ]

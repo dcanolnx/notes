@@ -1,0 +1,19 @@
+---
+- name: Configure PXE on startup
+  delegate_to: 127.0.0.1
+  ipmi_boot:
+    bootdev: network
+    name: "{{ inventory_hostname }}"
+    user: "{{ ipmi_user }}"
+    password: '{{ ipmi_password }}'
+    port: "{{ ipmi_port }}"
+    state: present
+    persistent: no
+- name: Reboot server
+  delegate_to: 127.0.0.1
+  ipmi_power:
+    name: "{{ inventory_hostname }}"
+    user: "{{ ipmi_user }}"
+    port: "{{ ipmi_port }}"
+    password: '{{ ipmi_password }}'
+    state: reset

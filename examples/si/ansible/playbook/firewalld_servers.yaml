@@ -1,0 +1,80 @@
+---
+- hosts: none
+  become: true
+  vars:
+    commonports:
+      ssh: "22/tcp"
+      openexporter: "9100/tcp"
+    firewalldconfig:
+      ldap1.int.stratio.com:
+        ldap: "389/tcp"
+        ldaps: "636/tcp"
+        ldapexporter: "9330/tcp"
+        pcsd: "2224/tcp"
+        crmd: "3121/tcp"
+        corosync: "5403/tcp"
+        corosync2: "5404/udp"
+        corosync3: "5405/udp"
+        clvm: "21064/tcp"
+        arbitrator: "9929/tcp"
+        arbitrator2: "9929/udp"
+      ldap2.int.stratio.com:
+        ldap: "389/tcp"
+        ldaps: "636/tcp"
+        ldapexporter: "9330/tcp"
+        pcsd: "2224/tcp"
+        crmd: "3121/tcp"
+        corosync: "5403/tcp"
+        corosync2: "5404/udp"
+        corosync3: "5405/udp"
+        clvm: "21064/tcp"
+        arbitrator: "9929/tcp"
+        arbitrator2: "9929/udp"
+  tasks:
+    - name: FIREWALLD - Install the latest firewalld version
+      ansible.builtin.dnf:
+        name:
+          - firewalld
+ 
+    - name: FIREWALLD - Ensure firewalld service is running
+      service:
+        name: firewalld
+        state: started
+        enabled: true
+
+    - name: FIREWALLD - Determine allowed ports for the current host
+      set_fact:
+        allowed_ports: "{{ firewalldconfig[inventory_hostname] | default({}) }}"
+
+    - name: FIREWALLD - Open common allowed ports
+      ansible.posix.firewalld:
+        port: "{{ item.value }}"
+        permanent: yes
+        state: enabled
+      loop: "{{ commonports | dict2items }}"
+
+    - name: FIREWALLD - Open specific allowed ports
+      ansible.posix.firewalld:
+        port: "{{ item.value }}"
+        permanent: yes
+        state: enabled
+      loop: "{{ allowed_ports | dict2items }}"
+
+    - name: FIREWALLD - Get openports
+      ansible.posix.firewalld_info:
+        zones:
+          - public
+      register: openports
+
+    #- name: FIREWALLD - Close other ports
+    #  firewalld:
+    #    port: "{{ item[0] }}/tcp"
+    #    state: disabled
+    #    permanent: yes
+    #  loop: "{{ openports.firewalld_info.zones.public.ports }}"
+    #  when: item[0] not in allowed_ports.values() and item[0] not in commonports.values()
+    #
+    - name: FIREWALLD - Reload firewalld
+      service:
+        name: firewalld
+        state: reloaded 

@@ -1,0 +1,10 @@
+---
+- hosts: DNS
+  user: root
+  become: true
+  become_user: root
+  roles:
+   - bind-exporter
+
+  vars:
+    bind_exporter_version:  0.3.0

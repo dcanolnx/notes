@@ -1,0 +1,1 @@
+HISTTIMEFORMAT="%D %H:%M:%S "

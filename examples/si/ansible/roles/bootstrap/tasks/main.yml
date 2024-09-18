@@ -1,0 +1,138 @@
+---
+# tasks file for bootstrap
+
+- name: ADD DOCKER REPO
+  yum_repository:
+   name: Docker
+   baseurl: https://yum.dockerproject.org/repo/main/centos/7/
+   enabled: yes
+   gpgcheck: yes
+   gpgkey: https://yum.dockerproject.org/gpg
+   description: official Docker Repository
+  when: ansible_os_family == "RedHat" and ansible_distribution_version >= '7' and docker is defined and docker
+  tags: add_docker_repo
+
+- name: UPDATE PACKAGES
+  yum: name=* state=latest
+  when: ansible_os_family == "RedHat"
+  tags: update_pkg
+
+- name: UPDATE PACKAGES
+  apt: update_cache=yes
+  when: ansible_os_family == 'Debian'
+  tags: update_pkg
+
+- name: INSTALL YUM EPEL REPO
+  yum: name=epel-release state=latest
+  tags: pkg_install
+  when: ansible_os_family == "RedHat"
+
+- name: INSTALL YUM-PACKAGES
+  yum: name={{item}} state=latest
+  with_items:
+    - epel-release
+    - htop
+    - iftop
+    - curl
+    - git
+    - vim
+    - python-pip
+    - ntp
+    - lvm2
+    - xfsprogs
+    - libselinux-python
+    - psmisc
+    - wget
+    - ncdu
+  ignore_errors: true
+  tags: pkg_install
+  when: ansible_os_family == "RedHat"
+
+- name: INSTALL DOCKER ENGINE
+  yum: name={{item}} state=latest
+  with_items:
+    - docker-engine-1.11.2
+  tags: pkg_install_docker
+  when: ansible_os_family == "RedHat" and ansible_distribution_version >= '7' and docker is defined and docker
+
+- name: INSTALL APT-PACKAGES
+  apt: name={{item}} state=latest
+  with_items:
+    - htop
+    - iftop
+    - curl
+    - git
+    - vim
+    - python-pip
+    - python-software-properties
+    - ntp
+    - ntpdate
+    - lvm2
+    - xfsprogs
+    - language-pack-es
+    - python-selinux
+    - ncdu
+  ignore_errors: true
+  when: ansible_distribution == 'Ubuntu'
+  tags: pkg_install
+
+- name: UPGRADE PACKAGES
+  apt: upgrade=yes
+  when: ansible_os_family == 'Debian' and upgrade
+  tags: update_pkg
+
+- name: START NTP (RedHat)
+  systemd:
+   name: ntpd
+   state: started
+   enabled: yes
+  when: ansible_os_family == "RedHat"
+  tags: ntpd_start
+
+- name: START NTP (Ubuntu)
+  systemd:
+   name: ntp
+   state: started
+   enabled: yes
+  when: ansible_os_family == 'Debian'
+  tags: ntpd_start
+
+- name: NTPDATE
+  shell: ntpdate -u {{ntp_server}}
+  ignore_errors: true
+  tags: ntp
+
+- name: IPTABLES
+  shell: iptables -F
+  when: iptables_enabled is defined and not iptables_enabled
+  tags: iptables
+
+- name: INSTALL IPTABLES
+  yum: name={{item}} state=latest
+  with_items:
+    - iptables-utils
+    - iptables-services
+  when: iptables_enabled is defined and iptables_enabled and ansible_os_family == "RedHat"
+  tags: iptables
+
+- name: CHECK FIREWALLD STATUS
+  shell: systemctl status firewalld warn=false
+  register: svc_firewalld
+  failed_when: svc_firewalld.rc != 0 and ("inactive" in svc_firewalld.stderr)
+  ignore_errors: true
+  tags: firewalld
+
+- name: STOP FIREWALLD
+  service: name=firewalld state=stopped
+  when: ansible_os_family == "RedHat" and ansible_distribution_version >= '7' and svc_firewalld is defined and svc_firewalld.rc == 0
+  tags: firewalld
+
+- name: START DOCKER
+  service: name=docker state=started
+  when: ansible_os_family == "RedHat" and ansible_distribution_version >= '7' and docker is defined and docker
+  tags: docker_start
+
+- name: DISABLE FIREWALLD
+  service: name=firewalld enabled=no
+  when: ansible_os_family == "RedHat" and ansible_distribution_version >= '7' and svc_firewalld is defined and svc_firewalld.rc == 0
+  tags: firewalld

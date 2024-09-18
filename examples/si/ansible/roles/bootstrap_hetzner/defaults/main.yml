@@ -1,0 +1,4 @@
+---
+# defaults file for securitas
+iptables_config: /etc/sysconfig/iptables
+iptables_service: iptables

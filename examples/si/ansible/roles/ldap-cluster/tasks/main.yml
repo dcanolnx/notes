@@ -1,0 +1,227 @@
+#---
+## tasks file for ldap-cluster
+### INSTALL LDAP
+- name: LDAP - Get systemd LDAP
+  systemd:
+    name: slapd
+  register: unit_status
+
+- name: LDAP - Check systemd LDAP status
+  debug:
+    msg: "Ldap is not active on this node"
+  register: ldap_status
+  when: unit_status.status.ActiveState != "active"
+
+- name: LDAP - Install EPEL-release package
+  ansible.builtin.dnf:
+    name: epel-next-release
+    state: present
+
+- name: LDAP - Install the latest version of necessary packages
+  ansible.builtin.dnf:
+    name:
+      - openldap-servers 
+      - openldap-clients
+      - crontabs
+      - cronie 
+      - cronie-anacron
+    state: latest
+    nobest: true
+  when: unit_status.status.ActiveState != "active"
+
+- name: LDAP - Copy certificate file
+  copy:
+    src: "{{ role_path }}/files/wild-int-stratio-com-2022.crt"
+    dest: "/etc/openldap/certs/wild-int-stratio-com-2022.crt"
+    mode: u+rwx,g+rx,o+rx
+
+- name: LDAP - Copy certificate chain file
+  copy:
+    src: "{{ role_path }}/files/wild-int-stratio-com-2022-chain.crt"
+    dest: "/etc/openldap/certs/wild-int-stratio-com-2022-chain.crt"
+    mode: u+rwx,g+rx,o+rx
+
+- name: LDAP - Copy key file
+  copy:
+    src: "{{ role_path }}/files/wild-int-stratio-com-2022.key"
+    dest: "/etc/openldap/certs/wild-int-stratio-com-2022.key"
+    mode: u+rwx,g+rx,o+rx
+
+- name: LDAP - Modify systemd unit
+  lineinfile:
+    path: /usr/lib/systemd/system/slapd.service
+    regexp: '^ExecStart='
+    line: 'ExecStart=/usr/sbin/slapd -u ldap -h "ldap:// ldaps:// ldapi://"'
+
+- name: LDAP - Reload systemd daemon
+  systemd:
+    daemon_reload: yes
+
+- name: LDAP - Start and enable LDAP
+  systemd:
+    name: slapd
+    state: started
+    enabled: true
+  when: unit_status.status.ActiveState != "active"
+  ignore_errors: true
+
+### MODIFY CONDIF.LDIF IF IT'S NECESSARY
+- name: LDAP - Copy template config.ldif to machine
+  template:
+    src: "{{role_path}}/templates/{{inventory_hostname_short}}_config.ldif"  
+    dest: /tmp/
+
+- name: LDAP - Generate actual config.ldif
+  shell: "slapcat -b cn=config > /tmp/actual_config.ldif"
+
+- name: LDAP - Get checksum of the first file
+  shell: "sha256sum /tmp/{{inventory_hostname_short}}_config.ldif | awk '{print $1}'"
+  register: first_checksum
+  changed_when: false
+
+- name: LDAP - Get checksum of the second file
+  shell: "sha256sum /tmp/actual_config.ldif | awk '{print $1}'"
+  register: second_checksum
+  changed_when: false
+
+- name: "LDAP - It is necessary to restart slapd and value allowrestart is: {{allowrestart}}"
+  ansible.builtin.pause:
+    seconds: 10
+  when: first_checksum.stdout != second_checksum.stdout and allowrestart is false
+
+- name: LDAP - Generate LDIF data file
+  shell: "slapcat > /tmp/actual_data.ldif"
+  when: first_checksum.stdout != second_checksum.stdout and allowrestart is true
+  ignore_errors: true
+
+- name: LDAP - Stop slapd
+  shell: "systemctl stop slapd"
+  when: first_checksum.stdout != second_checksum.stdout and allowrestart is true
+
+- name: LDAP - Delete LDAP content
+  shell: "rm -rf /etc/openldap/slapd.d/* && rm -rf /var/lib/ldap/*"
+  when: first_checksum.stdout != second_checksum.stdout and allowrestart is true
+
+- name: LDAP - Apply /tmp/{{inventory_hostname_short}}_config.ldif
+  shell: "slapadd -F /etc/openldap/slapd.d/ -n 0 -l /tmp/{{inventory_hostname_short}}_config.ldif"
+  when: first_checksum.stdout != second_checksum.stdout and allowrestart is true
+
+- name: LDAP - Apply /tmp/actual_data.ldif
+  shell: "slapadd -F /etc/openldap/slapd.d -l /tmp/actual_data.ldif"
+  when: first_checksum.stdout != second_checksum.stdout and allowrestart is true
+
+- name: LDAP - Set perrmisions LDAP data
+  shell: "chown ldap:ldap -R /etc/openldap/slapd.d && chown ldap:ldap -R /var/lib/ldap"
+  when: first_checksum.stdout != second_checksum.stdout and allowrestart is true
+
+- name: LDAP - Start and enable LDAP
+  systemd:
+    name: slapd
+    state: started
+    enabled: true
+  when: first_checksum.stdout != second_checksum.stdout and allowrestart is true
+  ignore_errors: true
+
+### MODIFY DATA.LDIF IF IT'S NECESSARY
+- name: LDAP - Copy data.ldif to machine
+  template:
+    src: "{{role_path}}/{{applydataldif}}"  
+    dest: /tmp/data.ldif
+  when: applydataldif and allowrestart is true
+
+- name: LDAP - Generate actual config.ldif
+  shell: "slapcat -b cn=config > /tmp/actual_config.ldif"
+  when: applydataldif and allowrestart is true
+
+- name: LDAP - Generate actual data.ldif
+  shell: "slapcat > /tmp/actual_data.ldif"
+  when: applydataldif and allowrestart is true
+  ignore_errors: true
+
+- name: LDAP - Get checksum of the first file
+  shell: "sha256sum /tmp/actual_data.ldif | awk '{print $1}'"
+  register: first_checksum
+  changed_when: false
+  ignore_errors: true
+  when: applydataldif and allowrestart is true
+
+- name: LDAP - Get checksum of the second file
+  shell: "sha256sum /tmp/data.ldif | awk '{print $1}'"
+  register: second_checksum
+  changed_when: false
+  ignore_errors: true
+  when: applydataldif and allowrestart is true
+
+- name: "LDAP - You mark apply new data.ldif and value allowrestart is: {{allowrestart}}"
+  ansible.builtin.pause:
+    seconds: 10
+  when: applydataldif and allowrestart is false
+
+- name: LDAP - Stop slapd
+  shell: "systemctl stop slapd"
+  when: applydataldif and first_checksum.stdout != second_checksum.stdout and allowrestart is true
+
+- name: LDAP - Delete LDAP content
+  shell: "rm -rf /etc/openldap/slapd.d/* && rm -rf /var/lib/ldap/*"
+  when: applydataldif and first_checksum.stdout != second_checksum.stdout and allowrestart is true
+
+- name: LDAP - Apply /tmp/actual_config.ldif
+  shell: "slapadd -F /etc/openldap/slapd.d/ -n 0 -l /tmp/actual_config.ldif"
+  when: applydataldif and first_checksum.stdout != second_checksum.stdout and allowrestart is true
+
+- name: LDAP - Apply /tmp/data.ldif
+  shell: "slapadd -F /etc/openldap/slapd.d -l /tmp/data.ldif"
+  when: applydataldif and first_checksum.stdout != second_checksum.stdout and allowrestart is true
+
+- name: LDAP - Set perrmisions LDAP data
+  shell: "chown ldap:ldap -R /etc/openldap/slapd.d && chown ldap:ldap -R /var/lib/ldap"
+  when: applydataldif and first_checksum.stdout != second_checksum.stdout and allowrestart is true
+
+- name: LDAP - Start and enable LDAP
+  systemd:
+    name: slapd
+    state: started
+    enabled: true
+  when: applydataldif and first_checksum.stdout != second_checksum.stdout and allowrestart is true
+  ignore_errors: true
+
+### CONFIGURE BACKUP
+- name: LDAP - Start and enable CROND
+  systemd:
+    name: crond
+    state: started
+    enabled: true
+
+- name: LDAP - Ensure backup directory exists
+  file:
+    path: /backup_ldap/
+    state: directory
+    mode: '0755'
+
+- name: LDAP - Ensure backup data directory exists
+  file:
+    path: /backup_ldap/data
+    state: directory
+    mode: '0755'
+
+- name: LDAP - Add line to root user's crontab
+  cron:
+    name: "Your cron job name"
+    minute: "0"
+    hour: "1"
+    user: "root"
+    job: "/backup_ldap/backup_ldap.sh"
+
+- name: LDAP - Copy backup script file
+  copy:
+    src: "{{ role_path }}/files/backup_ldap.sh"
+    dest: "/backup_ldap/backup_ldap.sh"
+    mode: u+rwx,g+rx,o+rx
+
+- name: LDAP - Enable SELinux
+  ansible.posix.selinux:
+    policy: targeted
+    state: enforcing
+
+- name: LDAP - Configure SELinux
+  shell: "setsebool -P allow_ypbind=1 && setsebool -P authlogin_nsswitch_use_ldap=1"

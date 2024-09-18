@@ -1,0 +1,6 @@
+---
+- hosts: USERS
+  become: true
+  become_user: root
+  roles:
+   - laptops-requeriments

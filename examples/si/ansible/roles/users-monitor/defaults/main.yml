@@ -1,0 +1,18 @@
+
+---
+# defaults file for monitor-users
+monitor_group: "monitor"
+monitor:
+  jsuarez:
+    sudo: yes
+    id_rsa: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDDUf6l0R4dUISlDbZiTzXXFK+du8x2yTyL9CIC77C9avcLoUt/z14hwsSz4qokZXM/P8NpsLdGGSDD/tdo5Fp+bI1uBfAv1P1lAy7bbo9zRigVXjdCmkb13Y0MkC5OIxOB0BCGyi+3BfAmG4Ez+GenpB/T80lpcB/diGMIQYLMHM9EAIr5uuMqSre5i8fpZ55SEk2mdYbZs6Xg/DiGFAbdGaeNbEEjslveiR8yS0sDgag/CJE0jk96puMni4evKWmzaR0l4aCi7LWpRmH6/Ue48468U4zZ28ycLGBV1lZhhNhajfZZ2kTiQMo64KMcgYtE67GYfxjfSVCFA3GPW1dj jsuarez@jsuarez
+  dlopez:
+    sudo: yes
+    id_rsa: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCmlbWxmp4KV0etPQe8m7CU2BjS0ay9FBfXokRcnpQNa3t3sSHc8bYLkuhVvQ0hyW+JHAmCKtfK6O1X/s+iVplmW0gbtcAdEBUtz2nxxV7ZSA3QYBROkgik/7OMiWAAh/I+71B6QkGHfeAlduGA0s3h/36zLL8+nQ24+nWCW+hQc2T1/Mk/d5G+05qcvCz2PvgvGElk5WxtP/WdtcvDrzUOrW9mu/4RRBgA9Mn33I5TzvoKlsVgZ7sZQgqMpPlvZrKGD3qzL0UYmWjTZ6SPmKayiuj/Zkt5M4fCoTasstPf0M2Z/GUreS5yTkrzVRMgeiUUNwYKDtxGnaFvG94FYYRl dlopez@dlopez    
+  jfmodrono:
+    sudo: yes
+    id_rsa: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC0s1CQd3dvvfyUzWIuMfEM+HPX9BaHHidBRhUVPfcspe5dhg1zeluay2pPfT+Ym8AuMGws8T2aaHoGVxPAVTUg1npaqUN1Vz9QmXdJRjl2O+EpRox0xySGUFBzpVIUdYXEpzzX1Ldt1VvPINZOAybobhu6xxEOn2UahBmydQ2OoDuMVMWnP3MThct+Q1vRrjYmI7DFnNobR//CAcsI6PxaAD+B/2zQN/L3M8oLlwpChbBD7vS+KAiRSzZc0eI/XP9lVTuyBYHqbRPS8bkDnQiUuscFv/cKEYJbCTil3o1TVtZWEpDZHSOHsp+DxMwr96/sU6XzuYull1uFO2/i1rzN jfmodrono@jfmodrono
+  lbonifacio:
+    sudo: yes
+    id_rsa: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDGTnUnHyHFdtELsPheUUA2hWZKaqNvVtjsm11EtcHBRvNStxtNscuAWtbBAw23fJh48G34UzVIYI8L8EtBCUFsXGIGI3OW35HZyz51SjKNIh5+aN9AZ2Wxdkzd8PgfZoenxH0lzJBbwjY/+wVJfDsXMSsWtBeHi5hvdMGYd27qC+ZD0EdGFcr+kwqsTSuJOnkVpPGm5HyqjeoVOOtkPHfQwuneqLbUGx86S32iWDOoJs/tkro7sUXgcg/0Qp4r32O8w6EQ1LT0Zdfrb1tHMCdtBKIviTwNTgZKxXfeJNpPqfqOgZnv9qItcPSR7TuX8o5r6eUoGQBGcVZec7v0guLz lbonifacio@lbonifacio
+  

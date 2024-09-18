@@ -1,0 +1,83 @@
+---
+# tasks file for bind_exporter
+
+- name: Ensure group {{bind_exporter_group}} existance
+  group: name={{bind_exporter_group}} state=present
+  become: yes
+  tags: [exporters]
+
+- name: Add user {{bind_exporter_user}}
+  user: name={{bind_exporter_user}} group={{bind_exporter_group}} comment="{{bind_exporter_description}}" shell=/sbin/nologin home={{bind_exporter_home}}
+  become: yes
+  ignore_errors: yes
+  tags: [exporters]
+
+- name: Ensure folder {{role_path}}/files/ exists
+  local_action: file path="{{role_path}}/files" state=directory
+  become: no
+  tags: [bind_exporter]
+
+- name: Check if bind_exporter is already on {{role_path}}/files/bind_exporter-{{bind_exporter_version}}.linux-amd64.tar.gz
+  local_action: stat path={{role_path}}/files/bind_exporter-{{bind_exporter_version}}.linux-amd64.tar.gz
+  run_once: yes
+  become: no
+  register: bind_exporter_archive_stat
+  tags: [bind_exporter]
+
+- name: Download bind_exporter v{{bind_exporter_version}}
+  local_action: get_url url={{bind_exporter_url}} dest={{role_path}}/files/ timeout=100
+  run_once: yes
+  become: no
+  when: not bind_exporter_archive_stat.stat.exists
+  register: bind_exporter_downloaded
+  tags: [bind_exporter]
+
+# - name: Fail if bind_exporter not found
+#   fail: msg="{{role_path}}/files/bind_exporter-{{bind_exporter_version}}.linux-amd64.tar.gz does NOT exist! Aborting..."
+#   run_once: yes
+#   when: bind_exporter_downloaded|failed
+#   tags: [bind_exporter]
+
+- name: Create temp folder
+  shell: mktemp -p /dev/shm -t bind_exporter.XXX -d
+  become: yes
+  register: tmpdir
+  tags: [bind_exporter]
+
+- name: Unpack bind_exporter-v{{bind_exporter_version}} to {{tmpdir.stdout}}
+  unarchive: copy=yes src=bind_exporter-{{bind_exporter_version}}.linux-amd64.tar.gz dest={{tmpdir.stdout}}
+  become: yes
+  # when: tmpdir|success
+  register: bind_exporter_unpack
+  tags: [bind_exporter]
+
+- name: Copy {{tmpdir.stdout}}/bind_exporter-{{bind_exporter_version}}.linux-amd64/bind_exporter to {{bind_exporter_installdir}}
+  copy: remote_src=yes src={{tmpdir.stdout}}/bind_exporter-{{bind_exporter_version}}.linux-amd64/bind_exporter dest={{bind_exporter_installdir}} mode=0755
+  become: yes
+  # when: bind_exporter_unpack|success
+  register: bind_exporter_copy
+  tags: [bind_exporter]
+
+- name: Remove temp folder
+  file: path="{{tmpdir.stdout}}" state=absent
+  become: yes
+  # when: bind_exporter_copy|success
+  tags: [bind_exporter]
+
+- name: Create {{bind_exporter_servicename}} systemd's unit
+  template:
+     src=bind_exporter-systemd.j2
+     dest=/etc/systemd/system/{{bind_exporter_servicename}}.service
+     owner=root group=root mode=644
+  become: yes
+  tags: [bind_exporter]
+
+- name: Update systemd's configuration
+  shell: systemctl daemon-reload
+  become: yes
+  tags: [bind_exporter]
+
+- name: Enable and start {{bind_exporter_servicename}}
+  service: name={{bind_exporter_servicename}} state=restarted enabled=yes
+  become: yes
+  tags: [bind_exporter,restart]

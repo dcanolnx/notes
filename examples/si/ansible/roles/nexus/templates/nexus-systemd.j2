@@ -1,0 +1,14 @@
+[Unit]
+Description=Nexus Service
+After=network.target
+
+[Service]
+Type=simple
+User=nexus3
+LimitNOFILE=65536
+ExecStart=/data/nexus3/nexus/bin/nexus run
+Restart=on-abort
+
+
+[Install]
+WantedBy=multi-user.target

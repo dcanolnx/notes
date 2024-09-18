@@ -1,0 +1,45 @@
+---
+# tasks file
+
+- name: Add Bacula Repo
+  template:
+     src=Bacula.repo.j2
+     dest=/etc/yum.repos.d/Bacula.repo
+     owner=root group=root mode=644
+
+- name: Import Bacula key from a url
+  rpm_key:
+    key: https://www.bacula.org/downloads/Bacula-4096-Distribution-Verification-key.asc
+    state: present
+
+- name: Install Bacula Client
+  yum:
+    name: https://bacula.org/packages/{{ bacula_key }}/rpms/{{ bacula_version }}/el7/x86_64/bacula-client-{{ bacula_version }}-1.el7.x86_64.rpm
+    state: present
+
+- name: Create config symbolic link 
+  file:
+    src: /opt/bacula/etc
+    dest: /etc/bacula
+    state: link
+
+- name: Config bacula client
+  template:
+     src=bacula-fd.conf.j2
+     dest=/etc/bacula/bacula-fd.conf
+     owner=root group=root mode=644
+
+- name: Create systemd unit
+  template:
+     src=bacula-fd.service.j2
+     dest=/usr/lib/systemd/system/bacula-fd.service
+     owner=root group=root mode=644
+
+- name: Update systemd's configuration
+  shell: systemctl daemon-reload
+
+- name: Enable and start bacula-fd
+  service: 
+    name: bacula-fd
+    state: restarted
+    enabled: yes

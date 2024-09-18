@@ -1,0 +1,12 @@
+---
+# defaults file for node-exporter
+bind_exporter_installdir:   "/usr/local/bin"
+#bind_exporter_version: 
+bind_exporter_url:          "https://github.com/prometheus-community/bind_exporter/releases/download/v{{bind_exporter_version}}/bind_exporter-{{bind_exporter_version}}.linux-amd64.tar.gz"
+bind_exporter_group:        stratio
+bind_exporter_user:         exporters
+bind_exporter_servicename:  bind_exporter
+bind_exporter_description:  "Prometheus Bind-Exporter"
+bind_exporter_systemd:      True
+bind_exporter_home:         "/home/exporters"
+

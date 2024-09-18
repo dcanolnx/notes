@@ -1,0 +1,69 @@
+---
+- name: Configurar Wazuh-Agent en diferentes distribuciones
+  hosts: all
+  become: yes
+  vars:
+    playbook_dir: "{{ playbook_dir }}"
+
+  tasks:
+    - name: Reunir hechos del sistema
+      ansible.builtin.setup:
+      
+    - name: Eliminar todos los archivos en /var/ossec/ruleset/sca
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      with_fileglob:
+        - /var/ossec/ruleset/sca/*
+
+    # Tareas para AlmaLinux 8
+    - name: Copiar archivos para AlmaLinux 8
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/alma8-generic/{{ item }}"
+        dest: /var/ossec/ruleset/sca/{{ item }}
+      loop:
+        - stratio_cis_alma8_linux.yml
+      when: ansible_distribution == "AlmaLinux" and ansible_distribution_major_version == "8"
+      notify: reiniciar wazuh-agent
+
+    # Tareas para CentOS 7.9
+    - name: Copiar archivos para CentOS 7.9
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/centos7.9-generic/{{ item }}"
+        dest: /var/ossec/ruleset/sca/{{ item }}
+      loop:
+        - stratio_cis_centos7_linux.yml
+      when: ansible_distribution == "CentOS" and ansible_distribution_major_version == "7"
+      notify: reiniciar wazuh-agent
+
+    # Agregar tareas similares para CentOS 8 y Amazon Linux 2 aquí
+    # (Nota: Asegúrate de tener la estructura de carpetas y nombres de archivos correctos)
+
+    # Tareas para Amazon Linux 2
+    - name: Copiar archivos para Amazon Linux 2
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/amazon-linux2-generic/{{ item }}"
+        dest: /var/ossec/ruleset/sca/{{ item }}
+      loop:
+        - archivo_1.yml # Reemplaza con el nombre real del archivo
+        - archivo_2.yml # Reemplaza con el nombre real del archivo
+        # Añade más archivos según sea necesario
+      when: ansible_distribution == "Amazon" and ansible_distribution_major_version == "2"
+      notify: reiniciar wazuh-agent
+
+    # Tarea para ajustar permisos
+    - name: Ajustar permisos de archivos en /var/ossec/ruleset/sca
+      ansible.builtin.file:
+        path: /var/ossec/ruleset/sca/{{ item }}
+        owner: root
+        group: root
+        mode: '0644'
+      with_fileglob: 
+        - "/var/ossec/ruleset/sca/*.yml"
+      when: ansible_distribution in ["AlmaLinux", "CentOS", "Amazon"]
+
+  handlers:
+    - name: reiniciar wazuh-agent
+      ansible.builtin.service:
+        name: wazuh-agent
+        state: restarted

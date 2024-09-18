@@ -1,0 +1,99 @@
+---
+# tasks file for sysadmin-users
+- name: CREATE SYSADMIN GROUP
+  group: name={{sysadmins_group}} state=present system=yes
+  tags: sysadmin_group
+
+## ONLY EXTERNAL SERVERS
+- name: CREATE SYSADMIN USERS (EXTERNAL HOSTS)
+  user: name={{item}} createhome=yes group={{sysadmins_group}} append=yes shell=/bin/bash password={{default_password}} update_password=on_create state=present
+  with_items: "{{sysadmins}}"
+  tags: external_security
+  when: external is defined and external
+## ONLY EXTERNAL SERVERS
+
+- name: CREATE SYSADMIN USERS
+  user: name={{item}} createhome=yes group={{sysadmins_group}} append=yes shell=/bin/bash state=present
+  with_items: "{{sysadmins}}"
+  tags: sysadmin_user
+  when: external is defined and not external
+
+- name: CREATE SSH FOLDER
+  file:
+   owner={{item}}
+   group={{sysadmins_group}}
+   path=/home/{{item}}/.ssh
+   state=directory
+  with_items: "{{sysadmins}}"
+  tags: ssh_folder
+
+- name: INCLUDING PUBLIC RSA
+  copy: src='../files/id_rsa{{item}}' dest='/home/{{item}}/.ssh/authorized_keys' owner={{item}} group={{sysadmins_group}} force='yes'
+  with_items: "{{sysadmins}}"
+  tags: ssh_key
+
+- name: ADD USERS TO DOCKER GROUP
+  user: name={{item}} groups=docker append=yes
+  when: docker is defined and docker
+  with_items: "{{sysadmins}}"
+  tags: docker_users
+
+- name: ADDING SUDOERS PERMISIONS
+  lineinfile: dest=/etc/sudoers line='%{{sysadmins_group}} ALL=(ALL:ALL) NOPASSWD:ALL' owner=root group=root mode=0440 validate='visudo -cf %s'
+#  when: type == "master"
+  tags: sudoers
+
+- name: ALLOW ROOT LOGIN ONLY without-password
+  lineinfile: dest=/etc/ssh/sshd_config regexp='^PermitRootLogin' line="PermitRootLogin without-password" state=present
+  tags: disable_root_login
+  when: not rootlogin 
+
+## ONLY EXTERNAL SERVERS
+- name: APLY NEW POLICIES
+  import_tasks: external.yml
+  tags: external_security
+  when: external is defined and external
+## ONLY EXTERNAL SERVERS
+
+- name: SSH OR SSHD...
+  command: service sshd status warn=no
+  register: sshd
+  ignore_errors: true
+  tags: disable_root_login
+  when: not rootlogin
+
+- name: RESTART SSHD SERVICE
+  service: name=sshd state=restarted
+  tags: disable_root_login
+  when: 
+    - not rootlogin
+    - sshd is success
+
+- name: RESTART SSH SERVICE
+  tags: disable_root_login
+  when: 
+    - not rootlogin
+    - sshd is failed
+  shell: sleep 3; /etc/init.d/sshd restart
+  async: 1
+  poll: 0
+
+- name: CREATE FORMER USERS LIST
+  shell: while IFS=$':' read group n id _members ; do [[ $_members ]] && members+="$_members,"; members+="$(grep -E "^[^:]+:[^:]+:[^:]+:${id}:.*$" /etc/passwd | cut -d ':' -f1 | tr -t '\n' ',')"; echo -n ${members} | tr -t ',' ' ' ; done< <(getent group {{sysadmins_group}}) | sed -e "s/ $//"
+  args:
+    executable: /bin/bash
+  register: old_sysadmins_users_temp
+
+- name: REGISTER FORMER USERS LIST
+  set_fact: old_sysadmins_users="{{item}}"
+  with_items: "{{old_sysadmins_users_temp.stdout_lines | list}}"
+
+- name: PURGE ALL OTHER USERS BELONGING TO {{sysadmins_group}}
+  shell: "userdel -r {{item}}"
+  with_items: "{{ old_sysadmins_users.split(\" \") }}"
+  when: old_sysadmins_users is defined and item not in sysadmins
+
+- name: PURGE ALL OTHER USERS BELONGING TO {{sysadmins_group}} SUDO PERMISIONS
+  lineinfile: dest=/etc/sudoers line='{{item}} ALL=(ALL:ALL) NOPASSWD:ALL' owner=root group=root mode=0440 validate='visudo -cf %s' state=absent
+  with_items: "{{ old_sysadmins_users.split(\" \") }}"
+  when: old_sysadmins_users is defined and item not in sysadmins

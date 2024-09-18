@@ -1,0 +1,43 @@
+---
+# tasks file for support-users
+- name: CREATE {{support_group}} GROUP
+  group: name={{support_group}} state=present system=yes
+
+- name: CREATE {{support_group}} USERS
+  user: name={{item.key}} createhome=yes group={{support_group}} append=yes shell=/bin/bash state=present
+  with_dict: "{{support | default({})}}"
+
+- name: CREATE USERS' SSH FOLDER
+  file:
+   owner={{item}}
+   group={{support_group}}
+   path=/home/{{item}}/.ssh
+   state=directory
+  with_items: "{{support | default([])}}"
+
+- name: INCLUDE USERS' PUBLIC RSA
+  copy: content='{{item.value.id_rsa}}' dest='/home/{{item.key}}/.ssh/authorized_keys' owner={{item.key}} group={{support_group}} force='yes'
+  with_dict: "{{support | default({})}}"
+
+- name: ADDING {{support_group}} SUDOERS PERMISIONS
+  lineinfile: dest=/etc/sudoers line='%{{support_group}} ALL=(ALL:ALL) NOPASSWD:ALL' owner=root group=root mode=0440 validate='visudo -cf %s'
+
+- name: CREATE FORMER USERS LIST
+  shell: while IFS=$':' read group n id _members ; do [[ $_members ]] && members+="$_members,"; members+="$(grep -E "^[^:]+:[^:]+:[^:]+:${id}:.*$" /etc/passwd | cut -d ':' -f1 | tr -t '\n' ',')"; echo -n ${members} | tr -t ',' ' ' ; done< <(getent group {{support_group}}) | sed -e "s/ $//"
+  args:
+    executable: /bin/bash
+  register: old_support_users_temp
+
+- name: REGISTER FORMER USERS LIST
+  set_fact: old_support_users="{{item}}"
+  with_items: "{{old_support_users_temp.stdout_lines | list}}"
+
+- name: PURGE ALL OTHER USERS BELONGING TO {{support_group}}
+  shell: "userdel -r {{item}}"
+  with_items: "{{ old_support_users.split(\" \") | difference(support | default([]) | list) }}"
+  when: old_support_users is defined
+
+- name: PURGE ALL OTHER USERS BELONGING TO {{support_group}} SUDO PERMISIONS
+  lineinfile: dest=/etc/sudoers line='{{item}} ALL=(ALL:ALL) NOPASSWD:ALL' owner=root group=root mode=0440 validate='visudo -cf %s' state=absent
+  with_items: "{{ old_support_users.split(\" \") | difference(support | default([]) | list) }}"
+  when: old_support_users is defined

@@ -1,0 +1,7 @@
+DEVICE={{ interface_name }}.{{ item.value.vlan }}
+BOOTPROTO=none
+ONBOOT=yes
+IPADDR={{ item.value.ifc_ip }}
+PREFIX={{ item.value.range  | ipaddr('prefix') }}
+NETWORK={{ item.value.range | ipaddr('network') }}
+VLAN=yes

@@ -1,0 +1,11 @@
+---
+# tasks file for prisa_hetzner_devel
+- hosts: host
+  vars:
+    monitor:
+      lsande:
+        sudo: no
+        id_rsa: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQD1lM/RvcxsadV2VQ1UV/h5D12mSN5/Lr4k+A/+m7C8kWbbi22OXk8JY8jxP9bTh9KhAPG5bjSD0Z2Y7NHLjGgbaEEvKKkzEVFj2d0aEjaUxwZ/U2P7d1Lmv5lTBPodZ9xUN5MAElYbCENFAQ0TAwJMaIa/xwuJkqhcjomuy3uUrg//zCLO9bA6wZp+OVd0Vtb1tkr4sM3vqjAujO53CEJKwHzUbCAgPSmKe2XaW8mBNWDNIn1Bl/SRUXdGJvdE4qB7wK3VUkw5WaBp2ADnRBaozG833AxTqEl8bcWAB0YZ0kX5jcIuGLnzWoTyHlwssBfRs+2qa3fOMxAAp6SUTd9V santiagosanchez@santiagosanchez
+
+  roles:
+    - monitor-users

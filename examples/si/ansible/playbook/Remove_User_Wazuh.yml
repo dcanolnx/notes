@@ -1,0 +1,27 @@
+- name: Stratio - Remove Wazuh agent from Wazuh Server (Wazuh-AWS)
+  hosts: all
+  become: yes
+  vars:
+    user_to_remove: "{{ username }}" 
+
+  tasks:
+    - name: Get agent ID
+      shell: "/var/ossec/bin/manage_agents -l | grep {{ user_to_remove }} | awk '{print $2}'"
+      register: agent_id_output
+      ignore_errors: true
+
+    - name: Check if user exists
+      fail:
+        msg: "User {{ user_to_remove }} does not exist."
+      when: "'ID:' not in agent_id_output.stdout"
+
+    - name: Remove agent
+      shell: "/var/ossec/bin/manage_agents -r {{ agent_id_output.stdout | regex_search('ID: (\\d+),', '\\1') | first }}"
+      when: agent_id_output is defined and agent_id_output.stdout != ""
+      register: removal_result
+
+    - name: Check removal result
+      fail:
+        msg: "Failed to remove agent for user {{ user_to_remove }}."
+      when: removal_result.rc != 0
+

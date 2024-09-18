@@ -1,0 +1,32 @@
+# Configuración portgroups esxi
+- hosts: ESXi_ClusterA
+  become: true
+  vars:
+    vcenter_hostname: fluor.int.stratio.com
+    vcenter_username: Administrator@vsphere.local
+    cluster_name: ClusterA
+  
+  tasks:
+
+    - name: Configure NTP servers for an ESXi Host
+      community.vmware.vmware_host_ntp:
+        hostname: '{{ vcenter_hostname }}' 
+        username: '{{ vcenter_username }}' 
+        password: '{{ vcenter_password }}' 
+        esxi_hostname: esx01a.int.stratio.com
+        ntp_servers:
+            - minuto.roa.es
+            - hora.roa.es
+        delegate_to: localhost
+
+     - name: Set NTP servers for all ESXi Host in given Cluster
+       community.vmware.vmware_host_ntp:
+        hostname: '{{ vcenter_hostname }}'
+        username: '{{ vcenter_username }}'
+        password: '{{ vcenter_password }}'
+        cluster_name: '{{ cluster_name }}'
+        state: present
+        ntp_servers:
+            - minuto.roa.es
+            - hora.roa.es
+        delegate_to: localhost

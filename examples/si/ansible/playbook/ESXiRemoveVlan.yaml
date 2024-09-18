@@ -1,0 +1,13 @@
+# Configuración portgroups esxi
+- hosts: ESXi_ClusterA
+  become: true
+  vars:
+    portgroup:
+
+      Labs_Twelve:
+        vSwitch: vSwitch0
+  tasks:
+    - name: Remove portgroup
+      shell: esxcli network vswitch standard portgroup remove -p '{{item.key}}' -v '{{item.value.vSwitch}}'
+      with_dict: "{{portgroup | default({})}}"
+      ignore_errors: yes

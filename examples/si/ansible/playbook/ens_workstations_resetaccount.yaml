@@ -1,0 +1,51 @@
+---
+- hosts: linux-users
+  become: true
+  vars:
+    change_password: false
+  tasks:
+    - name: Gather available local users
+      getent:
+        database: passwd
+
+    - name: Users to change passwords and unlock account
+      debug:
+        var: item.key
+      loop: "{{ getent_passwd | dict2items }}"
+      when:
+        - item.value[1]|int > 999
+        - item.value[1]|int < 65534
+        - not item.key == "sistemas"
+        - change_password == "True"
+
+    - name: Create random password 
+      ansible.builtin.set_fact:
+        new_password: "{{ lookup('ansible.builtin.password', '/dev/null length=8') }}"
+      when: change_password == "True"
+
+    - name: Change users password
+      ansible.builtin.user:
+        name:             "{{ item.key }}"
+        state:            present
+        update_password:  always
+        password_lock:    False
+        password:         "{{ new_password | password_hash('sha512') }}"
+      loop: "{{ getent_passwd | dict2items }}"
+      when:
+        - item.value[1]|int > 999
+        - item.value[1]|int < 65534
+        - not item.key == "sistemas"
+        - change_password == "True"
+
+    - name: Print new password to all users
+      debug:
+        var: new_password
+      when: change_password == "True"
+
+    - name: Reset account lock with pam_tally2
+      command: "pam_tally2 --user {{item.key}} --reset"
+      loop: "{{ getent_passwd | dict2items }}"
+      when:
+        - item.value[1]|int > 999
+        - item.value[1]|int < 65534
+        - not item.key == "sistemas"

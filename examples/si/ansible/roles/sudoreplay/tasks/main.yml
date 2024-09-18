@@ -1,0 +1,28 @@
+---
+- name: ADDING SUDOREPLAY
+  lineinfile:
+      path: /etc/sudoers
+      state: present
+      regexp: 'Defaults log_output'
+      line: 'Defaults log_output'
+      insertbefore: "^# See"
+      validate: '/usr/sbin/visudo -cf %s'
+  tags: sudoreplay
+- name: IGNORE COMMADNS
+  lineinfile:
+      path: /etc/sudoers
+      state: present
+      regexp: 'Defaults!{{ item }}'
+      line: 'Defaults!{{ item }} !log_output'
+      insertafter: "Defaults log_output"
+      validate: '/usr/sbin/visudo -cf %s'
+  with_items: "{{ sudoreplay_ignore }}"
+  tags: sudoreplay_ignore
+- name: ADDED MAXSEQ
+  lineinfile:
+      path: /etc/sudoers
+      state: present
+      regexp: 'Defaults maxseq = 9000'
+      line: 'Defaults maxseq = 9000'
+      insertbefore: "^# See"
+      validate: '/usr/sbin/visudo -cf %s'

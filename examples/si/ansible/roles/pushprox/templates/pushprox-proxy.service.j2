@@ -1,0 +1,13 @@
+[Unit]
+Description=Prometheus PushProx Proxy
+After=network.target
+
+[Service]
+Type=simple
+ExecStart-=/usr/bin/docker rm -f pushprox-proxy
+ExecStart=/usr/bin/docker run --name pushprox-proxy -p {{pushprox_proxy_port}}:8080 {{pushprox_proxy_docker_image}}
+ExecStop=/usr/bin/docker rm -f pushprox-proxy
+StandardOutput=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,15 @@
+FROM python:alpine
+
+LABEL version="2.0.0" \
+      description="Rundeck metrics exporter to Prometheus" \
+      maintainer="Sysinternal Stratio"
+
+RUN apk update &&  \
+    apk upgrade && \
+    apk add --no-cache git && \
+    pip install prometheus-client requests cachetools &&\
+    git clone https://github.com/phsmith/rundeck_exporter.git &&\
+    chmod +x rundeck_exporter/rundeck_exporter.py  &&\
+    cp rundeck_exporter/rundeck_exporter.py /usr/bin/rundeck_exporter.py
+
+ENTRYPOINT ["/usr/bin/rundeck_exporter.py"]

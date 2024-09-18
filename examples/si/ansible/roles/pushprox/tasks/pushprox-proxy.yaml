@@ -1,0 +1,12 @@
+---
+- name: Purge pushprox-proxy docker image
+  shell: docker rmi -f {{pushprox_proxy_docker_image}}
+  ignore_errors: yes
+
+- name: Create pushprox-proxy Systemd unit
+  template:
+    src=pushprox-proxy.service.j2 dest="/etc/systemd/system/pushprox-proxy.service"
+    mode=0644 owner=root group=root
+
+- name: Enable and start pushprox-proxy service
+  systemd: name=pushprox-proxy state=restarted enabled=yes daemon_reload=yes

@@ -1,0 +1,18 @@
+---
+# tasks file for forti_workstations
+
+#    - name: Install dependencies
+#      apt:
+#        name: "{{ package }}"
+#        state: present
+#      loop: "{{ packages_to_install}}"
+        
+    - name: Download Forti Client agent for Ubuntu 20
+      get_url:
+        url: "{{ forti_agent_deb }}"
+        dest: "{{ forti_agent_deb_location }}"
+        mode: '0440'
+    
+    - name: Install FortiClient
+      command: dpkg -i /tmp/forticlient.deb
+      when: "'ubuntu' in ansible_distribution"

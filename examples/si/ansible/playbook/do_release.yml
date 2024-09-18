@@ -1,0 +1,5 @@
+---
+- hosts: linux-users
+  become: true
+  roles:
+    - do_release

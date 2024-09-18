@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+
+#####################
+## GitHub Database ##
+#####################
+function github-stratio-remove-user(){
+    if [ ${#@} -lt 1 ]; then
+        echo "Remove User from Stratio GitHub"
+        echo "usage: $0 <github username>"
+        return -1
+    fi
+
+    local github_user="$1"
+    
+    curl 'http://iodo.int.stratio.com:8583/github_users/query/' --data "sql=DELETE+FROM+github_users+WHERE+username%3D%22${github_user}%22" --compressed --insecure
+}
+
+function github-stratio-create-user(){
+    if [ ${#@} -lt 2 ]; then
+        echo "Create User from Stratio GitHub"
+        echo "usage: $0 <github username> <user mail> <comments>"
+        return -1
+    fi
+
+    local github_user="$1"
+    local user_mail="$2"
+    local comments="$3"
+
+    curl 'http://iodo.int.stratio.com:8583/github_users/query/' --data "sql=INSERT+INTO+github_users+VALUES+%28%22${github_user}%22%2C%22${user_mail}%22%2C%22${comments}%22%29" --compressed --insecure
+}

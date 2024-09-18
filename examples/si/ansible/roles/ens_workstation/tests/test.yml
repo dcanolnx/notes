@@ -1,0 +1,6 @@
+---
+- hosts: workstation
+  remote_user: sistemas
+  become: yes
+  roles:
+    - ../../ens_workstation

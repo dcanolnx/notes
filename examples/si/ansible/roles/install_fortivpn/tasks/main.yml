@@ -1,0 +1,31 @@
+---
+# tasks file for forti_workstations
+- name: Update Cache and Upgrade all Packages
+  register: updatesys
+  apt: 
+    name: "*"
+    state: latest
+    update_cache: yes
+
+- name: Installing dependencies
+  apt:
+    name: "{{ item }}"
+    state: present
+  loop: "{{ software_list }}"
+
+- name: Remove useless packages from the cache
+  apt:
+    autoclean: yes
+
+- name: Remove dependencies that are no longer required
+  apt:
+    autoremove: yes
+
+- name: Download Forti VPN Client agent for Ubuntu
+  get_url:
+    url: "{{ forti_agent_deb }}"
+    dest: "{{ forti_agent_deb_location }}"
+    mode: '0440'
+
+- name: Install Forti VPN Client
+  command: dpkg -i /tmp/forticlient.deb

@@ -1,0 +1,37 @@
+---
+# defaults file for ens_workstation
+password_minimum_age_days:        2
+password_maximum_age_days:        90
+password_minimum_length:          8
+password_complexity_digit:        1
+password_complexity_uperchar:     1
+password_complexity_lowerchar:    1
+password_complexity_otherchar:    1
+password_history_size:            5
+account_lock_inactivity_seconds:  300
+accout_lockout_count:             3
+accout_lockout_reset:             30
+accout_lockout_duration_seconds:  900
+ntp_url:                          hora.roa.es
+
+welcome_message: | 
+  Use and responsibilities
+  We provide you with access and use to the systems, tools and/or information owned by STRATIO so that you can carry out your work or contractual activity.
+  These means are made available for strictly professional purposes, and cannot be used for any other purpose and may be subject to controls and monitoring.
+  Also, unauthorized access is strictly prohibited and may be subject to disciplinary actions or, where appropriate, initiate legal actions that STRATIO deems appropriate. 
+  Likewise, STRATIO processes your data, mainly, for the maintenance and development of the contractual relationship.
+  
+  Any user who accesses the system does so by declaring that they fully understand and accept these rules and the "RULE FOR THE USE OF STRATIO INFORMATION SYSTEMS".
+  In case of doubt or any type of related incident, please contact sysinternal@stratio.com.
+  If your question is related to the treatment that STRATIO makes of your data, you can contact privacy@stratio.com if you are an employee within the EU and/or privacy_colombia@stratio.com if you are an employee in Latin America.
+
+last_login_message: |-
+  Login Successful.
+  The last interactive login to this account was:
+
+account_failed_tries_message_time: |-
+  Login error.
+  The last time an error occurred while trying to log in interactively to this account was:
+
+account_failed_tries_message: |-
+  The number of failed interactive login attempts since the last interactive login was:

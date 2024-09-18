@@ -1,0 +1,12 @@
+[Unit]
+Description=Cluster {{ item.key }}_dhcp
+After=network.target
+
+[Service]
+User=root
+ExecStart=/usr/sbin/dhcpd -f -cf /opt/dhcp/{{ item.key }}/dhcpd.conf -lf /opt/dhcp/{{ item.key }}/dhcpd.leases  --no-pid
+TimeoutStartSec=10
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

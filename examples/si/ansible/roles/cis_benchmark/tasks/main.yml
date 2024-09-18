@@ -1,0 +1,494 @@
+---
+- name: CIS Benchmark filesystems
+  copy:
+    src: files/CIS.conf
+    dest: /etc/modprobe.d/CIS.conf
+    owner: root
+    group: root
+    mode: 0600
+
+- name: Ensure /tmp is configured
+  copy:
+    src: /usr/share/systemd/tmp.mount
+    dest: /etc/systemd/system/tmp.mount
+    owner: root
+    group: root
+    mode: 0644
+    force: true
+    remote_src: true
+
+- name: Ensure /tmp is configured | edit file
+  lineinfile:
+    dest: /etc/systemd/system/tmp.mount
+    regexp: "^Options=mode="
+    line: "Options=mode=1777,strictatime,nosuid,nodev,noexec,size={{ temp_dir_size }}"
+
+- name: Ensure /tmp is configured | reload demon
+  systemd:
+    daemon_reload: yes
+
+- name: Ensure /tmp is configured | enable and start tmp.mount
+  systemd:
+    name: tmp.mount
+    enabled: yes
+    masked: no
+    state: started
+
+- name: Ensure permissions on bootloader config are not overridden - step 1
+  shell: sed -ri 's/chmod\s+[0-7][0-7][0-7]\s+\$\{grub_cfg\}\.new/chmod 400 ${grub_cfg}.new/' /usr/sbin/grub-mkconfig
+
+- name: Ensure permissions on bootloader config are not overridden - step 2
+  shell:  sed -ri 's/ && ! grep "\^password" \$\{grub_cfg\}.new >\/dev\/null//' /usr/sbin/grub-mkconfig
+
+- name: Disable USB Storage
+  modprobe:
+    name: usb-storage
+    state: absent
+
+- name: Ensure permissions on bootloader config are configured
+  file:
+    path: "/boot/grub/grub.cfg"
+    owner: root
+    group: root
+    mode: "og-rwx"
+
+- name: Ensure Avahi Server is not installed
+  apt:
+    name: avahi-daemon
+    state: absent
+
+- name: Ensure rsync service is not installed
+  apt:
+    name: rsync
+    state: absent
+  ignore_errors: yes
+
+- name: Ensure ufw is installed ufw
+  apt:
+    name: ufw
+    state: present
+
+- name: Ensure auditd is installed
+  apt:
+    name: ["auditd", "audispd-plugins"]
+    state: present
+
+- name: Ensure auditing for processes that start prior to auditd is enabled - change /etc/default/grub
+  replace:
+    dest: /etc/default/grub
+    regexp: '^(GRUB_CMDLINE_LINUX=(?!.*audit)\"[^\"]*)(\".*)'
+    replace: '\1 audit=1\2'
+
+- name: Ensure auditing for processes that start prior to auditd is enabled - update grub
+  shell: update-grub
+
+- name: Ensure audit logs are not automatically deleted
+  lineinfile:
+    dest: /etc/audit/auditd.conf
+    regexp: "^max_log_file_action"
+    line: "max_log_file_action = {{ max_log_file_action }}"
+
+- name: Ensure system is disabled when audit logs are full
+  block:
+    - name: Ensure system is disabled when audit logs are full | admin_space_left_action
+      lineinfile:
+        dest: /etc/audit/auditd.conf
+        regexp: "^admin_space_left_action"
+        line: "admin_space_left_action = {{ admin_space_left_action }}"
+    - name: Ensure system is disabled when audit logs are full | space_left_action
+      lineinfile:
+        dest: /etc/audit/auditd.conf
+        regexp: "^space_left_action"
+        line: "space_left_action = {{ space_left_action }}"
+    - name: Ensure system is disabled when audit logs are full | action_mail_acct
+      lineinfile:
+        dest: /etc/audit/auditd.conf
+        regexp: "^action_mail_acct"
+        line: "action_mail_acct = {{ action_mail_acct }}"
+
+- name: Ensure events that modify user/group information are collected
+  template:
+    src: templates/identity.rules.j2
+    dest: /etc/audit/rules.d/identity.rules
+    owner: root
+    group: root
+    mode: 0600
+
+- name: Ensure events that modify the system's network environment are collected
+  template:
+    src: templates/system-locale.rules.j2
+    dest: /etc/audit/rules.d/system-locale.rules
+    owner: root
+    group: root
+    mode: 0600
+
+- name: Ensure events that modify the system's Mandatory Access Controls are collected
+  template:
+    src: templates/MAC-policy.rules.j2
+    dest: /etc/audit/rules.d/MAC-policy.rules
+    owner: root
+    group: root
+    mode: 0600
+
+- name: Ensure login and logout events are collected
+  template:
+    src: templates/logins.rules.j2
+    dest: /etc/audit/rules.d/logins.rules
+    owner: root
+    group: root
+    mode: 0600
+
+- name: Ensure session initiation information is collected
+  template:
+    src: templates/session.rules.j2
+    dest: /etc/audit/rules.d/session.rules
+    owner: root
+    group: root
+    mode: 0600
+
+- name: Ensure discretionary access control permission modification events are collected
+  template:
+    src: templates/perm_mod.rules.j2
+    dest: /etc/audit/rules.d/perm_mod.rules
+    owner: root
+    group: root
+    mode: 0600
+
+- name: Ensure unsuccessful unauthorized file access attempts are collected
+  template:
+    src: templates/audit.rules.j2
+    dest: /etc/audit/rules.d/audit.rules
+    owner: root
+    group: root
+    mode: 0600
+  
+- name: Ensure successful file system mounts are collected
+  template:
+    src: templates/system_mounts.rules.j2
+    dest: /etc/audit/rules.d/system_mounts.rules
+    owner: root
+    group: root
+    mode: 0600
+
+- name: Ensure file deletion events by users are collected
+  template:
+    src: templates/delete.rules.j2
+    dest: /etc/audit/rules.d/delete.rules
+    owner: root
+    group: root
+    mode: 0600
+
+- name: Ensure changes to system administration scope (sudoers) is collected
+  template:
+    src: templates/scope.rules.j2
+    dest: /etc/audit/rules.d/scope.rules
+    owner: root
+    group: root
+    mode: 0600
+
+- name: Ensure system administrator command executions (sudo) are collected
+  template:
+    src: templates/actions.rules.j2
+    dest: /etc/audit/rules.d/actions.rules
+    owner: root
+    group: root
+    mode: 0600
+
+- name: Ensure kernel module loading and unloading is collected
+  template:
+    src: templates/modules.rules.j2
+    dest: /etc/audit/rules.d/modules.rules
+    owner: root
+    group: root
+    mode: 0600
+
+- name: Ensure events that modify date and time information are collected
+  template:
+    src: templates/time-change.rules.j2
+    dest: /etc/audit/rules.d/time-change.rules
+    owner: root
+    group: root
+    mode: 0600
+
+- name: Ensure journald is configured to compress large log files
+  lineinfile:
+    dest: /etc/systemd/journald.conf
+    regexp: "(#)?Compress=(yes|no)"
+    line: Compress=yes
+
+- name: Ensure journald is configured to write logfiles to persistent disk
+  lineinfile:
+    dest: /etc/systemd/journald.conf
+    regexp: "(#)?Storage=(auto|persistent)"
+    line: Storage=persistent
+  notify:
+    - journald restart
+
+- name: Ensure cron daemon is enabled and running
+  service:
+    name: cron
+    enabled: yes
+    state: started
+
+- name: Ensure permissions on /etc/crontab are configured
+  file:
+    dest: /etc/crontab
+    owner: root
+    group: root
+    mode: 0600
+  
+- name: Ensure permissions on /etc/cron.hourly are configured
+  file:
+    dest: /etc/cron.hourly
+    state: directory
+    owner: root
+    group: root
+    mode: 0700
+
+- name: Ensure permissions on /etc/cron.daily are configured
+  file:
+    dest: /etc/cron.daily
+    state: directory
+    owner: root
+    group: root
+    mode: 0700
+
+- name: Ensure permissions on /etc/cron.weekly are configured
+  file:
+    dest: /etc/cron.weekly
+    state: directory
+    owner: root
+    group: root
+    mode: 0700
+
+- name: Ensure permissions on /etc/cron.monthly are configured
+  file:
+    dest: /etc/cron.monthly
+    state: directory
+    owner: root
+    group: root
+    mode: 0700
+
+- name: Ensure permissions on /etc/cron.d are configured
+  file:
+    dest: /etc/cron.d
+    state: directory
+    owner: root
+    group: root
+    mode: 0700
+
+- name: Ensure cron is restricted to authorized users
+  block:
+    - name: 5.1.8 Ensure cron is restricted to authorized users | /etc/cron.deny
+      file:
+        path: /etc/cron.deny
+        state: absent
+      ignore_errors: yes
+    - stat:
+        path: /etc/cron.allow
+      register: cfile
+    - name: 5.1.8 Ensure cron is restricted to authorized users | /etc/cron.allow
+      file:
+        path: /etc/cron.allow
+        state: "{{ 'file' if cfile.stat.exists else 'touch' }}"
+        owner: root
+        group: root
+        mode: "g-wx,o-rwx"
+
+- name: Ensure at is restricted to authorized users
+  block:
+    - name: Ensure at is restricted to authorized users | /etc/at.deny
+      file:
+        path: /etc/at.deny
+        state: absent
+      ignore_errors: yes
+    - stat:
+        path: /etc/at.allow
+      register: cfile
+    - name: Ensure at is restricted to authorized users | /etc/at.allow
+      file:
+        path: /etc/at.allow
+        state: "{{ 'file' if cfile.stat.exists else 'touch' }}"
+        owner: root
+        group: root
+        mode: "g-wx,o-rwx"
+
+- name: Ensure sudo is installed
+  apt:
+    name: sudo
+    state: present
+    install_recommends: false
+
+- name: Ensure sudo log file exists
+  lineinfile:
+    dest: /etc/sudoers
+    state: present
+    regexp: "^Defaults logfile.*"
+    line: 'Defaults logfile="/var/log/sudo.log"'
+    validate: "visudo -cf %s"
+
+- name: Ensure permissions on /etc/ssh/sshd_config are configured
+  file:
+    dest: /etc/ssh/sshd_config
+    state: file
+    owner: root
+    group: root
+    mode: 0600
+
+- name: Ensure SSH X11 forwarding is disabled
+  lineinfile:
+    state: present
+    dest: /etc/ssh/sshd_config
+    regexp: "^X11Forwarding"
+    line: "X11Forwarding no"
+
+- name: Ensure SSH MaxAuthTries is set to 4 or less
+  lineinfile:
+    state: present
+    dest: /etc/ssh/sshd_config
+    regexp: '^(#)?MaxAuthTries \d'
+    line: "MaxAuthTries {{ max_auth_tries }}"
+
+- name: Ensure SSH Idle Timeout Interval is configured
+  block:
+    - name: Ensure SSH Idle Timeout Interval is configured | clientalive
+      lineinfile:
+        state: present
+        dest: /etc/ssh/sshd_config
+        regexp: "^ClientAliveInterval"
+        line: "ClientAliveInterval 300"
+    - name: Ensure SSH Idle Timeout Interval is configured | MaxAlive
+      lineinfile:
+        state: present
+        dest: /etc/ssh/sshd_config
+        regexp: "^ClientAliveCountMax"
+        line: "ClientAliveCountMax 3"
+
+- name: Ensure SSH LoginGraceTime is set to one minute or less
+  lineinfile:
+    state: present
+    dest: /etc/ssh/sshd_config
+    regexp: "^LoginGraceTime"
+    line: "LoginGraceTime 60"
+
+- name: Ensure SSH PAM is enabled
+  lineinfile:
+    state: present
+    dest: /etc/ssh/sshd_config
+    regexp: "^UsePAM"
+    line: "UsePAM yes"
+
+- name: Ensure SSH AllowTcpForwarding is disabled
+  lineinfile:
+    state: present
+    dest: /etc/ssh/sshd_config
+    regexp: "^AllowTcpForwarding"
+    line: "AllowTcpForwarding no"
+
+- name: "Ensure SSH MaxStartups is configured to {{ ssh_max_startups }}"
+  lineinfile:
+    state: present
+    dest: /etc/ssh/sshd_config
+    regexp: "^MaxStartups"
+    line: "MaxStartups {{ ssh_max_startups }}"
+
+- name: Ensure only strong MAC algorithms are used
+  lineinfile:
+    state: present
+    dest: /etc/ssh/sshd_config
+    regexp: "^MACs"
+    line: "MACs {{ ssh_MACs }}"
+
+- name: Disable IPv6
+  block:
+    - name: Disable IPv6 - change /etc/default/grub to disable IPv6
+      replace:
+        dest: /etc/default/grub
+        regexp: '^(GRUB_CMDLINE_LINUX=(?!.*ipv6.disable)\"[^\"]*)(\".*)'
+        replace: '\1 ipv6.disable=1\2'
+    - name: Disable IPv6 - change /etc/default/grub to remove disabling IPv6
+      replace:
+        dest: /etc/default/grub
+        regexp: '^(GRUB_CMDLINE_LINUX=".*) ipv6.disable=1(.*")$'
+        replace: '\1\2'
+    - name: Disable IPv6 - update grub
+      shell: update-grub
+    - name: Disable IPv6 - Disable ipv6 ufw policies if ipv6 is not enabled 
+      replace:
+        path: /etc/default/ufw
+        regexp: '^(IPV6=yes)'
+        replace: 'IPV6=no'
+    - name: Disable IPv6 - change sysctl
+      sysctl:
+        name: "{{ item.name }}"
+        value: "{{ item.value }}"
+        sysctl_set: true
+        state: present
+        reload: true
+      ignore_errors: true
+      register: result_disable_ipv6_sysctl
+      with_items:
+        - { name: net.ipv6.conf.all.disable_ipv6, value: 1 }
+        - { name: net.ipv6.conf.default.disable_ipv6, value: 1 }
+        - { name: net.ipv6.route.flush, value: 1 }
+
+- name: 6.1.2 Ensure permissions on /etc/passwd are configured
+  file:
+    dest: /etc/passwd
+    owner: root
+    group: root
+    mode: 0644
+
+- name: 6.1.3 Ensure permissions on /etc/passwd- are configured
+  file:
+    dest: /etc/passwd-
+    owner: root
+    group: root
+    mode: 0600
+
+- name: 6.1.4 Ensure permissions on /etc/group are configured
+  file:
+    dest: /etc/group
+    owner: root
+    group: root
+    mode: 0644
+
+- name: 6.1.5 Ensure permissions on /etc/group- are configured
+  file:
+    dest: /etc/group-
+    owner: root
+    group: root
+    mode: 0644
+
+- name: 6.1.6 Ensure permissions on /etc/shadow are configured, with group '{{ etc_shadow_group }}'
+  file:
+    dest: /etc/shadow
+    owner: root
+    group: "{{ etc_shadow_group }}"
+    mode: 0640
+
+- name: 6.1.7 Ensure permissions on /etc/shadow- are configured
+  file:
+    dest: /etc/shadow-
+    owner: root
+    group: shadow
+    mode: "{{ etc_shadow_mode }}"
+
+- name: 6.1.8 Ensure permissions on /etc/gshadow are configured
+  file:
+    dest: /etc/gshadow
+    owner: root
+    group: shadow
+    mode: 0640
+
+- name: 6.1.9 Ensure permissions on /etc/gshadow- are configured
+  file:
+    dest: /etc/gshadow-
+    owner: root
+    group: shadow
+    mode: 0640
+
+- name: 1.5.3 Ensure prelink is not installed
+  apt:
+    name: prelink
+    state: absent

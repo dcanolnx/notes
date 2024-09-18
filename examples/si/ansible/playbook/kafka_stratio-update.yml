@@ -1,0 +1,71 @@
+---
+- hosts: kafa_env
+  user: root
+  become: true
+  become_user: root
+
+  vars:
+    kafka_version:        2.6.0
+    scala_version:        2.13
+    kafka_url:            https://downloads.apache.org/kafka/{{kafka_version}}/kafka_{{scala_version}}-{{kafka_version}}.tgz
+
+  tasks:
+  - name: Download kafka kafka_{{scala_version}}-{{kafka_version}}.tgz
+    local_action: get_url url={{kafka_url}} dest=/tmp/ timeout=100
+    run_once: yes
+    become: no
+
+  - name: Zookeeper. Unpack kafka_{{scala_version}}-{{kafka_version}}.tgz to /opt/
+    unarchive: copy=yes src=/tmp/kafka_{{scala_version}}-{{kafka_version}}.tgz dest=/opt/ owner=zookeeper group=stratio
+    when: "'zookeeper' in group_names"
+
+  - name: Kafka. Unpack kafka_{{scala_version}}-{{kafka_version}}.tgz to /opt/
+    unarchive: copy=yes src=/tmp/kafka_{{scala_version}}-{{kafka_version}}.tgz dest=/opt/ owner=kafka group=stratio
+    when: "'kafka' in group_names"
+  
+  - name: Stop kafka-zookeeper.service
+    service: 
+      name:   kafka-zookeeper.service
+      state:  stopped
+    when: "'zookeeper' in group_names"
+
+  - name: Stop kafka.service
+    service: 
+      name:   kafka.service
+      state:  stopped
+    when: "'kafka' in group_names"
+
+  - name: Delete old symbolic link /opt/kafka
+    file:
+      path:   "/opt/kafka"
+      state:  absent
+
+  - name: Zookeeper. Create symbolic link /opt/kafka_{{scala_version}}-{{kafka_version}} /opt/kafka
+    file:
+      src:   "/opt/kafka_{{scala_version}}-{{kafka_version}}"
+      dest:   "/opt/kafka"
+      state:  link
+      owner:  zookeeper
+      group:  stratio
+    when: "'zookeeper' in group_names"
+  
+  - name: Kafka. Create symbolic link /opt/kafka_{{scala_version}}-{{kafka_version}} /opt/kafka
+    file:
+      src:   "/opt/kafka_{{scala_version}}-{{kafka_version}}"
+      dest:   "/opt/kafka"
+      state:  link
+      owner:  kafka
+      group:  stratio
+    when: "'kafka' in group_names"
+  
+  - name: Start kafka-zookeeper.service
+    service: 
+      name:   kafka-zookeeper.service
+      state:  started
+    when: "'zookeeper' in group_names"
+
+  - name: Start kafka.service
+    service: 
+      name:   kafka.service
+      state:  started
+    when: "'kafka' in group_names"

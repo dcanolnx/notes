@@ -1,0 +1,28 @@
+---
+# tasks file for stratian-users-htz
+
+- name: CREATE operador GROUP
+  group: name=operador state=present system=yes
+
+- name: CREATE operador USERS
+  user: name=operador createhome=yes group=operador append=yes shell=/bin/bash state=present
+
+- name: CREATE USERS' SSH FOLDER
+  file:
+   owner=operador
+   group=operador
+   path=/home/operador/.ssh
+   state=directory
+
+- name: INCLUDE USERS' PUBLIC RSA
+  copy: 
+    content: 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDKv/UfcLrawf/eOj0KoQlV/y4mFdfplNYhfn5/wOnub/xaBoayUzjL20tMEsNkib4bX5omivwxjs41XnlFxKXb8qCZ3QqG9HyuBFNjGkVuaIOgKMNKuPi8n5Qzmeh7gP6okX6YkErfRAFGtCiq1qxPyd7loJZPpryYazRtr59DzlYZgD/la1KVxWup9cbhG11koctEbg26rQmj8RYAXIBV73VvxJdPQootHdQECkQ/l2KFAFvUDCiFuFrnOKCE8OdunE5DRw3Gxtp0Y9u+VwWcZx7kCHjI1E28kInND+ZpysMkLuYcjVNkn2iRMJQPXKsX85ShR2AYGkDhe0Ck7wVh' 
+    dest: '/home/operador/.ssh/authorized_keys' 
+    owner: operador 
+    group: operador 
+    force: 'yes'
+
+- name: ADDING USERS' SUDOERS PERMISIONS
+  lineinfile: dest=/etc/sudoers line='operador ALL=(ALL:ALL) NOPASSWD:ALL' owner=root group=root mode=0440 validate='visudo -cf %s'
+
+

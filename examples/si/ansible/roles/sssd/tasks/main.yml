@@ -1,0 +1,62 @@
+---
+- name: Install EPEL
+  yum:
+    name: epel-release
+    state: latest
+
+- name: Install packages
+  yum:
+    name:
+      - authconfig
+      - sssd
+      - sssd-tools
+      - nss-pam-ldapd
+      - inotify-tools
+    state: present
+
+- name: Configure authorization
+  command: "/sbin/authconfig --enablesssd --enablesssdauth --enablerfc2307bis --ldapserver=\"{{ ldap_server }}\" --ldapbasedn=\"{{ ldap_search_base }}\" --enablemkhomedir --updateall"
+
+- name: Set config file
+  template:
+    src: "{{role_path}}/templates/sssd.conf.j2"
+    dest: /etc/sssd/sssd.conf
+    backup: no
+    owner: root
+    group: root
+    mode: 0600
+
+- name: Configure sudoers in nsswitch
+  lineinfile:
+    line: "sudoers: files sss"
+    path: /etc/nsswitch.conf
+    state: present
+    backup: no
+    regexp: "^sudoers:.*$"
+    insertafter: "^group:.*$"
+    firstmatch: yes
+
+- name: Configure SSH 
+  lineinfile:
+    line: "{{ item.new }}"
+    path: /etc/ssh/sshd_config
+    state: present
+    backup: no
+    regexp: "{{ item.old }}"
+    insertafter: "AuthorizedKeysFile"
+    firstmatch: yes
+  with_items:
+    - { new: 'AuthorizedKeysCommand /usr/bin/sss_ssh_authorizedkeys', old: 'AuthorizedKeysCommand\s+' }
+    - { new: 'AuthorizedKeysCommandUser nobody', old: 'AuthorizedKeysCommandUser\s+'}
+
+- name: Start SSSD service
+  systemd:
+    state: started
+    enabled: yes
+    name: sssd
+
+- name: Restart SSH service
+  systemd:
+    state: restarted
+    enabled: yes
+    name: sshd

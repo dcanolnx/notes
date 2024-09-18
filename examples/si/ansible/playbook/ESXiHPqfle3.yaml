@@ -1,0 +1,31 @@
+# Configuración portgroups esxi
+- hosts: esxXXa.stratio.com
+  become: true
+  vars:
+    driver_version: QLG-bnx-6.0-offline_bundle-8174539
+    driver_url: http://thirdparties.repository.stratio.com/VMWare/{{driver_version}}.zip
+
+  tasks:
+    - name: Check if QLG Driver is already on /tmp/{{driver_version}}.zip
+      local_action: stat path=/tmp/{{driver_version}}.zip
+      become: no
+      run_once: yes
+      register: driver_archive_stat
+
+    - name: Download  QLG Driver {{driver_version}}
+      local_action: get_url url={{driver_url}} dest=/tmp/ timeout=100
+      run_once: yes
+      become: no
+      when: not driver_archive_stat.stat.exists
+    
+    - name: Copy /tmp/{{driver_version}}.zip to /tmp/{{driver_version}}.zip
+      copy: 
+        src: /tmp/{{driver_version}}.zip 
+        dest: /tmp/{{driver_version}}.zip 
+        mode: 0755
+
+    - name: Install Driver
+      shell: esxcli software vib install -d "/tmp/{{driver_version}}.zip"
+
+    - name: Disable old driver
+      shell: esxcli system module set --enabled=false --module=qfle3

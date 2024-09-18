@@ -1,0 +1,17 @@
+[Unit]
+Description=Prometheus pushprox client
+After=network.target
+
+[Service]
+Type=simple
+User={{pushprox_user}}
+Group={{pushprox_group}}
+Environment=PUSHPROXYIP={{pushprox_proxy_ip}}
+Environment=PUSHPROXYPORT={{pushprox_proxy_port}}
+Environment=HOSTNAME={{ansible_host}}
+ExecStart=/bin/bash -c "/usr/local/bin/pushprox-client --proxy-url=http://$$PUSHPROXYIP:$$PUSHPROXYPORT/ --fqdn=$$HOSTNAME"
+KillSignal=SIGINT
+StandardOutput=journal
+
+[Install]
+WantedBy=multi-user.target

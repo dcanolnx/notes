@@ -1,0 +1,7 @@
+---
+- hosts: ALL
+  #user: root
+  become: true
+  become_user: root
+  roles:
+   - users-sysadmin

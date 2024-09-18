@@ -1,0 +1,58 @@
+---
+- hosts: ldapcpd
+  become: true
+  vars:
+    float_ip: "10.120.0.90"
+    password_ha_user: "sTratio?1234567"
+    interface: "ens33"
+  tasks:
+    - name: FLOATINGIP - Install necessary packages
+      ansible.builtin.dnf:
+        name:
+          - pacemaker 
+          - corosync 
+          - pcs
+        enablerepo: highavailability
+        state: present
+
+    - name: FLOATINGIP - Ensure pcsd service is running
+      service:
+        name: pcsd
+        state: started
+        enabled: true
+
+    - name: FLOATINGIP - Change ha user password
+      ansible.builtin.user:
+        name: hacluster # Replace with the username of the user whose password you want to change
+        password: "{{ password_ha_user | password_hash('sha512') }}" 
+
+    - name: FLOATING IP - Auth cluster
+      shell: "pcs host auth {{ ansible_play_hosts_all | join(' ') }} -u hacluster -p {{password_ha_user}}"
+      delegate_to: "{{ ansible_play_hosts[0] }}"
+      run_once: true
+
+    - name: FLOATING IP - Setup cluster
+      shell: "pcs cluster setup ha_cluster  {{ ansible_play_hosts_all | join(' ') }}"
+      delegate_to: "{{ ansible_play_hosts[0] }}"
+      run_once: true
+      ignore_errors: true
+    
+    - name: FLOATING IP - Start and enable cluster
+      shell: "pcs cluster start --all && pcs cluster enable --all"
+      delegate_to: "{{ ansible_play_hosts[0] }}"
+      run_once: true
+    
+    - name: FLOATING IP - Configure automatic virtual ip start
+      shell: "pcs property set stonith-enabled=false"
+
+    - name: FLOATING IP - Configure VirtualIP
+      shell: "pcs resource create VirtualIP IPaddr2 ip={{float_ip}} cidr_netmask=24 nic={{interface}} op monitor interval=10s"
+      delegate_to: "{{ ansible_play_hosts[0] }}"
+      run_once: true
+
+    #- name: FLOATING IP - Start virtualip
+    #  shell: "pcs resource debug-start VirtualIP"
+    #  delegate_to: "{{ ansible_play_hosts[0] }}"
+    #  run_once: true
+
+

@@ -1,0 +1,142 @@
+###---
+#### tasks file for nexus-cluster
+##### INSTALL NEXUS
+#- name: Confirm the system is AlmaLinux
+#  shell: cat /etc/os-release
+#  register: os_release
+#
+#- name: Fail if the system is not AlmaLinux
+#  fail:
+#    msg: "This playbook only supports AlmaLinux"
+#  when: "'AlmaLinux' not in os_release.stdout"
+#
+#- name: Ensure SELinux is disabled
+#  lineinfile:
+#    path: /etc/selinux/config
+#    regexp: '^SELINUX='
+#    line: 'SELINUX=disabled'
+#    state: present
+#    
+#- name: Disable SELinux in the current session
+#  command: setenforce 0
+#  when: ansible_selinux.status == "enabled"
+#
+#- name: Update all packages
+#  yum:
+#    name: '*'
+#    state: latest
+#
+#- name: Install wget
+#  yum:
+#    name: wget
+#    state: present
+#
+#- name: Remove EC2 user if exists
+#  user:
+#    name: ec2-user
+#    state: absent
+#    remove: yes
+#
+#- name: Remove EC2 group if exists
+#  group:
+#    name: ec2-user
+#    state: absent
+#
+#- name: Create a group
+#  group:
+#    name: nexus3
+#    gid: 1000
+#    state: present
+#
+#- name: Create a user
+#  user:
+#    name: nexus3
+#    state: present
+#    uid: 1000
+#    group: nexus3
+#
+#- name: Create a directory
+#  file:
+#    path: "{{nexus_dir}}"
+#    state: directory
+#    owner: nexus3
+#    group: nexus3
+#
+#- name: Download a file using wget
+#  get_url:
+#    url: "{{nexus_download_url}}"
+#    dest: "{{nexus_dir}}/latest.tar.gz"
+#    mode: '0755'
+#
+#- name: Untar file
+#  unarchive:
+#    src: "{{nexus_dir}}/latest.tar.gz"
+#    dest: "{{nexus_dir}}"
+#    remote_src: yes
+#
+#- name: Create a symbolic link
+#  file:
+#    src: "{{nexus_dir}}/nexus-3.69.0-02"
+#    dest: "{{nexus_dir}}/nexus"
+#    state: link
+#
+#- name: Permissions all files 
+#  shell: "chown -R  nexus3:nexus3 {{nexus_dir}}"
+#
+#- name: Install openjdk
+#  yum:
+#    name: java-1.8.0-openjdk
+#    state: present
+#
+#- name: Create nexus systemd's unit
+#  template:
+#     src=nexus-systemd.j2
+#     dest=/etc/systemd/system/nexus.service
+#     owner=root group=root mode=644
+#
+#- name: Update systemd's configuration
+#  shell: systemctl daemon-reload
+#
+
+- name: Check if the line exists in the file
+  command: grep -Fxq "nexus.datastore.enabled=true" /data/nexus3/nexus/etc/nexus-default.properties
+  register: grep_result
+  ignore_errors: yes
+
+- name: Add a line to the bottom of the file if it does not exist
+  lineinfile:
+    path: /data/nexus3/nexus/etc/nexus-default.properties
+    line: "nexus.datastore.enabled=true"
+    create: yes
+    state: present
+  when: grep_result.rc != 0
+
+- name: Check if the line exists in the file
+  command: grep -Fxq "nexus.licenseFile=/data/nexus3/sonatype-license.lic" /data/nexus3/nexus/etc/nexus-default.properties
+  register: grep_result
+  ignore_errors: yes
+
+- name: Add a line to the bottom of the file if it does not exist
+  lineinfile:
+    path: /data/nexus3/nexus/etc/nexus-default.properties
+    line: "nexus.licenseFile=/data/nexus3/sonatype-license.lic"
+    create: yes
+    state: present
+  when: grep_result.rc != 0
+
+- name: Copy a local file to the remote host
+  copy:
+    src: "{{role_path}}/files/sonatype-license.lic"
+    dest: /data/nexus3/sonatype-license.lic
+    owner: nexus3
+    group: nexus3
+    mode: '0644'
+
+- name: Create nexus-store.properties
+  template:
+     src=nexus-store.properties.j2
+     dest=/data/nexus3/nexus/etc/fabric/nexus-store.properties
+     owner=nexus3 group=nexus3 mode=644
+
+#- name: Enable and start nexus
+#  service: name=nexus state=restarted enabled=yes

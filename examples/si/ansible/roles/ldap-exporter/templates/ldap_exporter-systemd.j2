@@ -1,0 +1,12 @@
+[Unit]
+Description={{ldap_exporter_description}}
+After=local-fs.target network-online.target network.target
+Wants=local-fs.target network-online.target network.target
+
+[Service]
+Type=simple
+User={{ldap_exporter_user}}
+ExecStart={{ldap_exporter_installdir}}/ldap_exporter 
+
+[Install]
+WantedBy=multi-user.target

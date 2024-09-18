@@ -1,0 +1,11 @@
+# ansible-playbook playbook.yml --limit nombre-del-host
+---
+- name: Install Forti VPN client only Ubuntu 20.04 Focal
+  hosts: ubuntu
+   
+  roles:
+    - role: install_fortivpn
+      when: 
+      - ansible_distribution == 'Ubuntu'
+      - ansible_distribution_major_version == '20'
+      - ansible_distribution_release == 'focal'

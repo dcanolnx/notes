@@ -1,0 +1,14 @@
+---
+# tasks file for wazuh_workstation
+- name: Config syslog to 10.120.201.12
+  shell: esxcli system syslog config set --loghost=udp://10.120.201.12:514
+
+- name: Add rule syslog to firewall
+  shell: esxcli network firewall ruleset set --ruleset-id=syslog --enabled=true
+
+- name: Refresh firewall
+  shell: esxcli network firewall refresh
+
+- name: Reload syslog
+  shell: esxcli system syslog reload
+

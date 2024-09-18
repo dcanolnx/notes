@@ -1,0 +1,11 @@
+---
+- hosts: Production
+  user: root
+  become: true
+  become_user: root
+  roles:
+   - rsyslog
+
+  vars:
+    logstash_ip:    10.120.0.53
+    logstash_port:  5015

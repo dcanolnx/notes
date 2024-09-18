@@ -1,0 +1,15 @@
+---
+temp_dir_size: 1G
+architecture: "x86_64"
+max_auth_tries: 4
+ssh_max_startups: "10:30:60"
+admin_space_left_action: halt
+max_log_file_action: keep_logs
+max_log_file: 10
+backlog_limit: "8192"
+space_left_action: email
+action_mail_acct: root
+grub_backlog_limit: 8192
+ssh_MACs: "hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,hmac-sha2-512,hmac-sha2-256"
+etc_shadow_group: shadow
+etc_shadow_mode: 0600

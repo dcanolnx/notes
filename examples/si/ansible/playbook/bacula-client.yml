@@ -1,0 +1,7 @@
+---
+- hosts: ldap-client
+  become: true
+  vars:
+    machine_name: ldap_client
+  roles:
+   - bacula-client

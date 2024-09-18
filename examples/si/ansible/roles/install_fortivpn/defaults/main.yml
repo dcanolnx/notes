@@ -1,0 +1,4 @@
+---
+# defaults file for forti_workstations
+forti_agent_deb: "https://links.fortinet.com/forticlient/deb/vpnagent"
+forti_agent_deb_location: "/tmp/forticlient.deb"

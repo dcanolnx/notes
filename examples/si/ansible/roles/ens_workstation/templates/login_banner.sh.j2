@@ -1,0 +1,33 @@
+#!/bin/bash
+
+# This script is intended to be run at login by the user. 
+# It will display the last login time of the user.
+# It will also display the number of failed login attempts since the last login.
+
+
+last_user_login_iso=$(last --fullnames --time-format iso | grep "$USER" | grep -v "still" | head -n 1 | awk '{print $4}')
+last_user_login_aureport=$(date -d $last_user_login_iso +%d/%m/%y\ %H:%M:%S)
+
+
+user_failed_login_last_time=$(aureport --auth --interpret --failed | grep $USER | tail -n 1 | awk '{print $2, $3}')
+if [ -z "$user_failed_login_last_time" ]
+then
+      user_failed_login_last_time="-"
+fi
+
+
+user_failed_login_count=$(aureport --auth --interpret --failed --summary --start $last_user_login_aureport | grep $USER | awk '{print $1}')
+if [ -z "$user_failed_login_count" ]
+then
+      user_failed_login_count=0
+fi
+
+zenity --info --ok-label 'Accept' --width=500 \
+--title 'NOTICE TO USERS' \
+--text="{{ last_login_message }} $last_user_login_aureport 
+
+{{account_failed_tries_message_time}} $user_failed_login_last_time
+{{account_failed_tries_message}} $user_failed_login_count"
+
+
+exit 0

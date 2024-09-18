@@ -1,0 +1,83 @@
+---
+# tasks file for node-exporter
+
+- name: Ensure group {{node_exporter_group}} existance
+  group: name={{node_exporter_group}} state=present
+  become: yes
+  tags: [exporters]
+
+- name: Add user {{node_exporter_user}}
+  user: name={{node_exporter_user}} group={{node_exporter_group}} comment="{{node_exporter_description}}" shell=/sbin/nologin home={{node_exporter_home}}
+  become: yes
+  ignore_errors: yes
+  tags: [exporters]
+
+- name: Ensure folder {{role_path}}/files/ exists
+  local_action: file path="{{role_path}}/files" state=directory
+  become: no
+  tags: [node-exporter]
+
+- name: Check if node-exporter is already on {{role_path}}/files/node_exporter-{{node_exporter_version}}.linux-amd64.tar.gz
+  local_action: stat path={{role_path}}/files/node_exporter-{{node_exporter_version}}.linux-amd64.tar.gz
+  run_once: yes
+  become: no
+  register: node_exporter_archive_stat
+  tags: [node-exporter]
+
+- name: Download node-exporter v{{node_exporter_version}}
+  local_action: get_url url={{node_exporter_url}} dest={{role_path}}/files/ timeout=100
+  run_once: yes
+  become: no
+  when: not node_exporter_archive_stat.stat.exists
+  register: node_exporter_downloaded
+  tags: [node-exporter]
+
+# - name: Fail if node-exporter not found
+#   fail: msg="{{role_path}}/files/node_exporter-{{node_exporter_version}}.linux-amd64.tar.gz does NOT exist! Aborting..."
+#   run_once: yes
+#   when: node_exporter_downloaded|failed
+#   tags: [node-exporter]
+
+- name: Create temp folder
+  shell: mktemp -p /dev/shm -t node-exporter.XXX -d
+  become: yes
+  register: tmpdir
+  tags: [node-exporter]
+
+- name: Unpack node-exporter-v{{node_exporter_version}} to {{tmpdir.stdout}}
+  unarchive: copy=yes src=node_exporter-{{node_exporter_version}}.linux-amd64.tar.gz dest={{tmpdir.stdout}}
+  become: yes
+  # when: tmpdir|success
+  register: node_exporter_unpack
+  tags: [node-exporter]
+
+- name: Copy {{tmpdir.stdout}}/node_exporter-{{node_exporter_version}}.linux-amd64/node_exporter to {{node_exporter_installdir}}
+  copy: remote_src=yes src={{tmpdir.stdout}}/node_exporter-{{node_exporter_version}}.linux-amd64/node_exporter dest={{node_exporter_installdir}} mode=0755
+  become: yes
+  # when: node_exporter_unpack|success
+  register: node_exporter_copy
+  tags: [node-exporter]
+
+- name: Remove temp folder
+  file: path="{{tmpdir.stdout}}" state=absent
+  become: yes
+  # when: node_exporter_copy|success
+  tags: [node-exporter]
+
+- name: Create {{node_exporter_servicename}} systemd's unit
+  template:
+     src=node-exporter-systemd.j2
+     dest=/etc/systemd/system/{{node_exporter_servicename}}.service
+     owner=root group=root mode=644
+  become: yes
+  tags: [node-exporter]
+
+- name: Update systemd's configuration
+  shell: systemctl daemon-reload
+  become: yes
+  tags: [node-exporter]
+
+- name: Enable and start {{node_exporter_servicename}}
+  service: name={{node_exporter_servicename}} state=restarted enabled=yes
+  become: yes
+  tags: [node-exporter,restart]

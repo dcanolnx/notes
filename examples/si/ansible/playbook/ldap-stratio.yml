@@ -1,0 +1,10 @@
+---
+- hosts: newpotasio
+  become: true
+  become_user: root
+  vars:
+    allowrestart: true
+    #applydataldif: "files/data.ldif"
+    applydataldif: 
+  roles:
+   - ldap-cluster

@@ -1,0 +1,17 @@
+- hosts: r1-sw1
+  vars:
+    ansible_user: admin     
+    ansible_become_method: enable       
+    ansible_become_password:     
+    ansible_password:     
+    ansible_connection: network_cli      
+    ansible_network_os: dellos6 
+    ansible_ssh_common_args: '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
+  become: yes
+  gather_facts: no
+  tasks:
+    - name: "Get Dell EMC OS6 Show version"
+      dellos6_command:
+        commands: 'show version'
+      register: version
+    - debug: var=version

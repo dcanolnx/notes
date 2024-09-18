@@ -1,0 +1,13 @@
+{
+  "policies": {
+    "ExtensionSettings": {
+	     "*": {
+      "installation_mode": "allowed"
+    },
+      "{fc188889-7206-4d15-9968-720116f7f6cc}": {
+        "installation_mode": "normal_installed",
+        "install_url": "https://addons.mozilla.org/firefox/downloads/file/3925424/metaclean_for_gmail_v215-2.1.5.xpi"
+      }
+    }
+  }
+}

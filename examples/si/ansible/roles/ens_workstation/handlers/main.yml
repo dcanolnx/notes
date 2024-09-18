@@ -1,0 +1,14 @@
+---
+# handlers file for ens_workstation
+- name: Update dconf
+  shell: dconf update 
+
+- name: Restart ntp
+  service:
+    name: systemd-timesyncd
+    state: restarted
+
+- name: Restart auditd
+  service:
+    name: auditd
+    state: restarted

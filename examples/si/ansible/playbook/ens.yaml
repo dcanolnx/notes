@@ -1,0 +1,5 @@
+---
+- hosts: none
+  become: true
+  roles:
+   - ens

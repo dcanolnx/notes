@@ -1,0 +1,18 @@
+---
+- hosts: linux-users
+  become: true
+  vars:
+    change_password: false
+  tasks:
+    - name: Remove "eea" package
+      ansible.builtin.apt:
+        name: eea
+        state: absent
+
+    - name: Remove directory using rm -rf
+      command: rm -rf /opt/eset/eset
+      ignore_errors: yes
+
+    - name: Remove directory using rm -rf
+      command: rm -rf /opt/eset/esets
+      ignore_errors: yes

@@ -1,0 +1,5 @@
+[workstation]
+test        ansible_host=192.168.1.39 
+
+[all:vars]
+ansible_port=2269

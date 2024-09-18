@@ -1,0 +1,46 @@
+- hosts: r3-sw1
+  vars:
+    ansible_user: admin     
+    ansible_become_method: enable       
+    ansible_become_password: C4sc4nu3c3s 
+    ansible_password: C4sc4nu3c3s
+    ansible_connection: network_cli      
+    ansible_network_os: dellos6 
+    ansible_ssh_common_args: '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
+    operation_type: install
+    software_image_url: 
+    software_version: 
+    number_of_retries: 40
+  become: yes
+  gather_facts: no
+  tasks:
+    - name: "Get Dell EMC OS6 Show version"
+      dellos6_command:
+        commands: 'show version'
+      register: version
+
+    - debug: var=version
+
+    - name: "Copy ftp image"
+      dellos6_command:
+        commands:
+          - command: "copy tftp://10.120.0.33/N2000Stdv6.7.1.22.stk backup" 
+            prompt: '(y/n) '
+            answer: "y"
+        timeout: 300
+      register: result
+
+    - name: "Get Dell EMC OS6 Show version"
+      dellos6_command:
+        commands: 'show version'
+      register: version
+
+    - debug: var=version
+
+    #- name: "Reload"
+    #  dellos6_command:
+    #    commands:
+    #      - command: "reload"
+    #        prompt: "Are you sure you want to continue? (y/n)"
+    #        answer: "y"
+    #    timeout: 300

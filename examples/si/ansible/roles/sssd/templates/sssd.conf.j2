@@ -1,0 +1,497 @@
+[sssd]
+services = nss, pam, sudo, ssh
+# Which SSSD services are started.
+# A separate process for each service is started
+# Optional on platforms where systemd is supported, as they will either
+# be socket or D-Bus activated when needed.
+ 
+#debug_level = 9
+# The amount of detail in the logs. Uncomment this and adjust as needed.
+# Level 9 is the most detailed level available.
+ 
+debug_timestamps = true
+# Add a timestamp to the debug messages. If journald is enabled for SSSD
+# debug logging this option is ignored.
+ 
+#timeout = 10
+# Timeout in seconds between heartbeats for this service. This is used
+# to ensure that the process is alive and capable of answering requests.
+# Note that after three missed heartbeats the process will terminate
+# itself.
+ 
+reconnection_retries = 3
+# Number of times services should attempt to reconnect in the event of a
+# Data Provider crash or restart before they give up
+ 
+domains = stratio
+# A list of domains to check when a client makes a request. They are
+# checked in the order listed. The domains listed must have a matching
+# configuration section in the format [domain/domainname]
+ 
+#domain_resolution_order =
+# Comma separated list of domains and subdomains representing the
+# lookup order that will be followed.
+ 
+#default_domain_suffix = stratio.com
+# This string will be used as a default domain name for all names
+# without a domain name component. Note that if this option is set all
+# users from the primary domain have to use their fully qualified name,
+# e.g. user@domain.name, to log in.
+ 
+enable_files_domain = true
+# When this option is enabled, SSSD prepends an implicit domain with
+# “id_provider=files” before any explicitly configured domains.
+ 
+[pam]
+#pam_verbosity = 2
+# The verbosity of output and logging related to PAM requests. Uncomment
+# and adjust as needed.
+ 
+#debug_level = 9
+# The amount of detail in the logs. Uncomment this and adjust as needed.
+# Level 9 is the most detailed level available.
+ 
+cache_first = 1
+# This option specifies whether the responder should query all caches
+# before querying the Data Providers.
+ 
+offline_credentials_expiration = 7
+# If the authentication provider is offline, how long should we allow
+# cached logins (in days since the last successful online login).
+ 
+offline_failed_login_attempts = 5
+# If the authentication provider is offline, how many failed login
+# attempts are allowed.
+ 
+offline_failed_login_delay =5
+# The time in minutes which has to pass after
+# offline_failed_login_attempts has been reached before a new login
+# attempt is possible.
+ 
+#pam_trusted_users = ""
+# Specifies the comma-separated list of UID values or user names that
+# are allowed to run PAM conversations against trusted domains. Users
+# not included in this list can only access domains marked as public
+# with “pam_public_domains”. User names are resolved to UIDs at startup.
+ 
+#pam_public_domains = ""
+# Specifies the comma-separated list of domain names that are accessible
+# even to untrusted users
+ 
+[nss]
+ 
+#debug_level = 7
+# The amount of detail in the logs. Uncomment this and adjust as needed.
+# Level 9 is the most detailed level available.
+ 
+#enum_cache_timeout = 120
+# How many seconds should nss_sss cache enumerations
+ 
+#memcache_timeout = 300
+# Specifies time in seconds for which records in the in-memory cache
+# will be valid.
+# Setting this option to zero will disable the in-memory cache
+ 
+#entry_cache_nowait_percentage = 50
+# The entry cache can be set to automatically update entries in the
+# background if they are requested beyond a percentage of the
+# entry_cache_timeout value for the domain.
+ 
+filter_users = root
+filter_groups = root
+# Exclude certain users or groups from being fetched from the sss NSS
+# database.
+ 
+#override_homedir = /home/%u
+# Override the user's home directory.
+ 
+#homedir_substring = /home
+# The value of this option will be used in the expansion of the
+# override_homedir option if the template contains the format string %H.
+ 
+fallback_homedir = /home/%u
+# Set a default template for a user's home directory if one is not
+# specified explicitly by the domain's data provider.
+ 
+#override_shell = /bin/bash
+# Override the login shell for all users.
+ 
+default_shell = /bin/bash
+# The default shell to use if the provider does not return one during
+# lookup.
+ 
+[sudo]
+ 
+#debug_level = 9
+# The amount of detail in the logs. Uncomment this and adjust as needed.
+# Level 9 is the most detailed level available.
+ 
+#sudo_threshold = 50
+# Maximum number of expired rules that can be refreshed at once.
+ 
+[ssh]
+ssh_known_hosts_timeout = 3600
+# How many seconds to keep a host in the managed known_hosts file after
+# its host keys were requested.
+ 
+[domain/stratio]
+id_provider = ldap
+# SSSD can resolve user information from a number of different sources
+# such as LDAP, local files, and Active Directory. This option sets
+# the domain's source of identity information.
+ 
+ldap_schema = rfc2307bis
+# Specifies the Schema Type in use on the target LDAP server.
+ 
+enumerate = false
+# Determines if a domain can be enumerated, that is, whether the domain
+# can list all the users and group it contains. Enumerating a domain
+# requires SSSD to download and store ALL user and group entries from
+# the remote server.
+# Note: Enabling enumeration has a moderate performance impact on SSSD
+# while enumeration is running.
+ 
+domain_type = posix
+# Specifies whether the domain is meant to be used by POSIX-aware
+# clients such as the Name Service Switch or by applications that do
+# not need POSIX data to be present or generated.
+ 
+use_fully_qualified_names = false
+# Use the full name and domain (as formatted by the domain's
+# full_name_format) as the user's login name reported to NSS.
+ 
+#debug_level = 9
+# The verbosity of this domains log file.
+ 
+min_id = 1000
+max_id = 0
+# UID and GID limits for the domain. If a domain contains an entry that
+# is outside these limits, it is ignored.
+ 
+case_sensitive = False
+# Treat user and group names as case sensitive. At the moment, this
+# option is not supported in the local provider.
+ 
+cache_credentials = True
+# This enables or disables credential caching. I.e. after successfully
+# authenticating a user, the credentials will be stored locally. If the
+# domain is unavailable, users will still be able to login using the
+# cached information.
+ 
+entry_cache_timeout = 5400
+# How many seconds should nss_sss consider entries valid before asking
+# the backend again
+ 
+#entry_cache_user_timeout = 5400
+# How many seconds should nss_sss consider user entries valid before
+# asking the backend again
+ 
+#entry_cache_group_timeout = 5400
+# How many seconds should nss_sss consider group entries valid before
+# asking the backend again
+ 
+#entry_cache_sudo_timeout = 5400
+# How many seconds should sudo consider rules valid before asking the
+# backend again
+ 
+#entry_cache_ssh_host_timeout = 5400
+# How many seconds to keep a host ssh key after refresh. IE how long
+# to cache the host key for.
+ 
+#refresh_expired_interval = 0
+# Specifies how many seconds SSSD has to wait before triggering a
+# background refresh task which will refresh all expired or nearly
+# expired records. 0 to disable.
+ 
+account_cache_expiration = 7
+# Number of days entries are left in cache after last successful login
+# before being removed during a cleanup of the cache. 0 means keep
+# forever.
+ 
+ldap_search_timeout = 6
+# Specifies the timeout (in seconds) that ldap searches are allowed to
+# run before they are cancelled and cached results are returned (and
+# offline mode is entered)
+ 
+ldap_connection_expire_timeout = 300
+# Specifies a timeout (in seconds) that a connection to an LDAP server
+# will be maintained. After this time, the connection will be
+# re-established.
+ 
+ldap_disable_paging = False
+# Disable the LDAP paging control.
+ 
+ldap_page_size = 100
+# Specify the number of records to retrieve from LDAP in a single
+# request. Some LDAP servers enforce a maximum limit per-request.
+ 
+#ldap_disable_range_retrieval = False
+# Disable Active Directory range retrieval.
+ 
+#ldap_sasl_minssf =
+# When communicating with an LDAP server using SASL, specify the
+# minimum security level necessary to establish the connection. The
+# values of this option are defined by OpenLDAP, usually in ldap.conf
+ 
+auth_provider = ldap
+# As with identity providers, SSSD can authenticate in a variety of ways.
+# By default, SSSD will use the value of id_provider.
+ 
+access_provider = ldap
+# The access provider controls the source for determining who is allowed
+# to access the system. Even if a user successfully authenticates, if they
+# don't meet the criteria provider by the access provider, they will be
+# denied access.
+ 
+chpass_provider = none
+#chpass_provider = ldap
+# The provider which should handle change password operations for the
+# domain.
+ 
+ldap_uri = {{ ldap_uri }}
+# Specifies the comma-separated list of URIs of the LDAP servers to
+# which SSSD should connect in the order of preference.
+ 
+ldap_referrals = True
+# Specifies whether automatic referral chasing should be enabled.
+ 
+#ldap_chpass_uri = ldap://:636
+# Specifies the comma-separated list of URIs of the LDAP servers to
+# which SSSD should connect in the order of preference to change the
+# password of a user.
+ 
+ldap_search_base = {{ ldap_search_base }}
+# The LDAP search base you want SSSD to use when looking
+# for entries.
+# SSSD supports multiple search bases using the syntax:
+#      search_base[?scope?[filter][?search_base?scope?[filter]]*]
+ 
+ldap_default_bind_dn = {{ ldap_bind_dn }}
+# The DN used to search your directory with. It must have read access to
+# everything your system needs.
+ 
+ldap_default_authtok_type = password
+# The type of the authentication token of the default bind DN.
+ 
+ldap_default_authtok = {{ ldap_password }}
+# The password of the bind DN.
+ 
+ldap_access_order = filter
+# Comma separated list of access control options.
+ 
+ldap_access_filter = {{ ldap_access_filter }}
+# These define the criteria the access provider uses to control who
+# is allowed to login. In this case, any user that matches the
+# LDAP filter in this example will be allowed access. Any entry
+# that has an objectClass of posixAccount will be allowed access.
+ 
+ldap_id_use_start_tls = False
+# Specifies that the id_provider connection must also use tls to
+# protect the channel.
+ 
+ldap_tls_reqcert = never
+# Specifies what checks to perform on server certificates in a TLS
+# session, if any.
+# never = The client will not request or check any server certificate.
+# allow = The server certificate is requested. If no certificate is
+#    provided, the session proceeds normally. If a bad certificate is
+#    provided, it will be ignored and the session proceeds normally.
+# try = The server certificate is requested. If no certificate is
+#    provided, the session proceeds normally. If a bad certificate is
+#    provided, the session is immediately terminated.
+# hard = The server certificate is requested. If no certificate is
+#    provided, or a bad certificate is provided, the session is
+#    immediately terminated.
+ 
+#ldap_tls_cacert = /pki/cacerts.pem
+# The file containing CA certificates you want sssd to trust.
+ 
+#ldap_tls_cacertdir =
+# Specifies the path of a directory that contains Certificate Authority
+# certificates in separate individual files.
+ 
+#ldap_tls_cert =
+# Specifies the file that contains the certificate for the client's key.
+ 
+#ldap_tls_key =
+# Specifies the file that contains the client's key.
+ 
+#ldap_tls_cipher_suite = HIGH
+# Specifies acceptable cipher suites. Typically this is a colon separated
+# list. By default it uses OpenLDAP defaults, typically in
+# /etc/openldap/ldap.conf
+ 
+ldap_user_object_class = posixAccount
+# The object class of a user entry in LDAP.
+ 
+ldap_user_search_base = {{ ldap_user_search_base }}
+# An optional base DN, search scope and LDAP filter to restrict LDAP
+# searches for this attribute type.
+#        search_base[?scope?[filter][?search_base?scope?[filter]]*]
+ 
+ldap_user_name = uid
+# The LDAP attribute that corresponds to the user's login name.
+ 
+ldap_user_fullname = cn
+# The LDAP attribute that corresponds to the user's full name.
+ 
+ldap_user_email = mail
+# Name of the LDAP attribute containing the email address of the user.
+ 
+ldap_user_uid_number = uidNumber
+# The LDAP attribute that corresponds to the user's id.
+ 
+ldap_user_gid_number = gidNumber
+# The LDAP attribute that corresponds to the user's primary group id.
+ 
+ldap_user_member_of = memberOf
+# The LDAP attribute that lists the user's group memberships.
+ 
+ldap_user_home_directory = homeDirectory
+# The LDAP attribute that contains the name of the user's home directory.
+ 
+ldap_user_shell = loginShell
+# The LDAP attribute that contains the path to the user's default shell.
+ 
+#ldap_user_uuid =
+# The LDAP attribute that contains the UUID/GUID of an LDAP user object.
+# objectGUID for AD.
+ 
+#ldap_user_objectsid =
+# The LDAP attribute that contains the objectSID of an LDAP user object.
+# This is usually only necessary for ActiveDirectory servers.
+ 
+#ldap_force_upper_case_realm =
+# Some directory servers, for example Active Directory, might deliver the
+# realm part of the UPN in lower case, which might cause the
+# authentication to fail. Set this option to a non-zero value if you want
+# to use an upper-case realm.
+ 
+ldap_user_ssh_public_key = sshPublicKey
+# The LDAP attribute that contains the user's SSH public keys.
+ 
+ldap_user_authorized_host = host
+# If access_provider=ldap and ldap_access_order=host, SSSD will use the
+# presence of the host attribute in the user's LDAP entry to determine
+# access privilege.
+ 
+ldap_group_object_class = posixGroup
+# The object class of a group entry in LDAP.
+ 
+ldap_group_search_base = {{ ldap_group_search_base }}
+# An optional base DN, search scope and LDAP filter to restrict LDAP
+# searches for this attribute type.
+#       search_base[?scope?[filter][?search_base?scope?[filter]]*]
+ 
+ldap_group_name = cn
+# The LDAP attribute that corresponds to the group name.
+# sAMAccountName in AD
+ 
+ldap_group_gid_number = gidNumber
+# The LDAP attribute that corresponds to the group's id.
+ 
+ldap_group_member = member
+# The LDAP attribute that contains the names of the group's members.
+# Default: memberuid (rfc2307) / member (rfc2307bis)
+ 
+#ldap_group_uuid =
+# The LDAP attribute that contains the UUID/GUID of an LDAP group object.
+# objectGUID for AD
+ 
+#ldap_group_objectsid =
+# The LDAP attribute that contains the objectSID of an LDAP group
+# object. This is usually only necessary for ActiveDirectory servers.
+ 
+#ldap_group_type =
+# The LDAP attribute that contains an integer value indicating the type
+# of the group and maybe other flags. This attribute is currently only
+# used by the AD provider to determine if a group is a domain local
+# groups and has to be filtered out for trusted domains.
+ 
+#ldap_host_object_class = ipService
+# The object class of a host entry in LDAP.
+ 
+#ldap_host_name = cn
+# The LDAP attribute that corresponds to the host's name.
+ 
+#ldap_host_fqdn = fqdn
+# The LDAP attribute that corresponds to the host's fully-qualified
+# domain name.
+ 
+#ldap_host_serverhostname = serverHostname
+# The LDAP attribute that corresponds to the host's name.
+ 
+#ldap_host_member_of = memberOf
+# The LDAP attribute that lists the host's group memberships.
+ 
+#ldap_host_ssh_public_key = sshPublicKey
+# The LDAP attribute that contains the host's SSH public keys.
+ 
+ldap_purge_cache_timeout = 0
+# Determine how often to check the cache for inactive entries (such as
+# groups with no members and users who have never logged in) and remove
+# them to save space.
+ 
+sudo_provider = ldap
+# The SUDO provider used for the domain.
+ 
+ldap_sudo_search_base = {{ ldap_sudo_search_base }}
+ 
+ldap_sudorule_object_class = sudoRole
+# The object class of a sudo rule entry in LDAP.
+ 
+ldap_sudorule_name = cn
+# The LDAP attribute that corresponds to the sudo rule name.
+ 
+ldap_sudorule_command = sudoCommand
+# The LDAP attribute that corresponds to the command name.
+ 
+ldap_sudorule_host = sudoHost
+# The LDAP attribute that corresponds to the host name (or host IP
+# address, host IP network, or host netgroup)
+ 
+ldap_sudorule_user = sudoUser
+# The LDAP attribute that corresponds to the user name (or UID, group
+# name or user's netgroup)
+ 
+ldap_sudorule_option = sudoOption
+# The LDAP attribute that corresponds to the sudo options.
+ 
+ldap_sudorule_runasuser = sudoRunAsUser
+# The LDAP attribute that corresponds to the user name that commands
+# may be run as.
+ 
+ldap_sudorule_runasgroup = sudoRunAsGroup
+# The LDAP attribute that corresponds to the group name or group GID
+# that commands may be run as.
+ 
+ldap_sudorule_order = sudoOrder
+# The LDAP attribute that corresponds to the ordering index of the rule.
+ 
+ldap_sudo_full_refresh_interval = 21600
+# How many seconds SSSD will wait between executing a full refresh of
+# sudo rules (which downloads all rules that are stored on the server).
+ 
+ldap_sudo_smart_refresh_interval = 900
+# How many seconds SSSD has to wait before executing a smart refresh of
+# sudo rules (which downloads all rules that have USN higher than the
+# highest USN of cached rules).
+
+ldap_sudo_use_host_filter = True
+# If true, SSSD will download only rules that are applicable to this
+# machine (using the IPv4 or IPv6 host/network addresses and hostnames).
+ 
+#ldap_sudo_hostnames =
+# Space separated list of hostnames or fully qualified domain names that
+# should be used to filter the rules. If this option is empty, SSSD will
+# try to discover the hostname and the fully qualified domain name
+# automatically.
+ 
+# ldap_sudo_ip =
+# Space separated list of IPv4 or IPv6 host/network addresses that should
+# be used to filter the rules. If this option is empty, SSSD will try to
+# discover the addresses automatically.
+ 
+ldap_sudo_include_regexp = True
+# If true then SSSD will download every rule that contains a wildcard in
+# sudoHost attribute.

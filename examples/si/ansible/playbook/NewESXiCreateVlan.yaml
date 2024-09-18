@@ -1,0 +1,289 @@
+# Configuración portgroups esxi
+- hosts: esx01b.int.stratio.com,esx02c.int.stratio.com
+  become: true
+  vars:
+    portgroup:
+      Red Aislada:
+        vSwitch: vSwitch0
+        VLAN:  69
+      Formacion:
+        vSwitch: vSwitch0
+        VLAN:  150
+      PDUs:
+        vSwitch: vSwitch0
+        VLAN:  180
+      Labs_Stratio:
+        vSwitch: vSwitch0
+        VLAN:  500
+      DMZ Stratio:
+        vSwitch: vSwitch0
+        VLAN:  667
+      Servidores Stratio:
+        vSwitch: vSwitch0
+        VLAN:  902
+      Labs_CICDPre:
+        vSwitch: vSwitch0
+        VLAN:  1001
+      Labs_Exhibit:
+        vSwitch: vSwitch0
+        VLAN:  1004
+      Labs_Demo:
+        vSwitch: vSwitch0
+        VLAN:  1005
+      NightlyBack:
+        vSwitch: vSwitch0
+        VLAN:  1006
+      Labs_Sierra:
+        vSwitch: vSwitch0
+        VLAN:  1007
+      Labs_India:
+        vSwitch: vSwitch0
+        VLAN:  1008
+      Labs_Romeo:
+        vSwitch: vSwitch0
+        VLAN:  1009
+      Labs_Tango:
+        vSwitch: vSwitch0
+        VLAN:  1010
+      Labs_Uniform:
+        vSwitch: vSwitch0
+        VLAN:  1011
+      Labs_Xray:
+        vSwitch: vSwitch0
+        VLAN:  1012
+      Labs_ECI:
+        vSwitch: vSwitch0
+        VLAN:  1013
+      Labs_REE:
+        vSwitch: vSwitch0
+        VLAN:  1014
+      Labs_NightlyForward:
+        vSwitch: vSwitch0
+        VLAN:  1015
+      Labs_PaasFabricDev:
+        vSwitch: vSwitch0
+        VLAN:  1016
+      Labs_Sec:
+        vSwitch: vSwitch0
+        VLAN:  1017
+      Labs_EOSdev:
+        vSwitch: vSwitch0
+        VLAN:  1018
+      Labs_EOSofflineNightly:
+        vSwitch: vSwitch0
+        VLAN:  1019
+      Labs_PAPA:
+        vSwitch: vSwitch0
+        VLAN:  1020
+      Labs_Physicals:
+        vSwitch: vSwitch0
+        VLAN:  1021
+      Labs_NightlyRocket:
+        vSwitch: vSwitch0
+        VLAN:  1023
+      Labs_Yankee:
+        vSwitch: vSwitch0
+        VLAN:  1024
+      Labs_Alpha:
+        vSwitch: vSwitch0
+        VLAN:  1025
+      Labs_Zulu:
+        vSwitch: vSwitch0
+        VLAN:  1026
+      Labs_Quebec:
+        vSwitch: vSwitch0
+        VLAN:  1027
+      Labs_EOSdev2:
+        vSwitch: vSwitch0
+        VLAN:  1028
+      Labs_Appsint-keos:
+        vSwitch: vSwitch0
+        VLAN:  1029
+      Labs_One:
+        vSwitch: vSwitch0
+        VLAN:  1030
+      Labs_Two:
+        vSwitch: vSwitch0
+        VLAN:  1031
+      Labs_EOSdev3:
+        vSwitch: vSwitch0
+        VLAN:  1032
+      Labs_Three:
+        vSwitch: vSwitch0
+        VLAN:  1033
+      Labs_Golf:
+        vSwitch: vSwitch0
+        VLAN:  1034
+      Labs_Five:
+        vSwitch: vSwitch0
+        VLAN:  1035
+      Labs_Six:
+        vSwitch: vSwitch0
+        VLAN:  1036
+      Labs_Seven:
+        vSwitch: vSwitch0
+        VLAN:  1037
+      Labs_Eight:
+        vSwitch: vSwitch0
+        VLAN:  1038
+      Labs_Nine:
+        vSwitch: vSwitch0
+        VLAN:  1039
+      Labs_Beta:
+        vSwitch: vSwitch0
+        VLAN:  1040
+      Labs_Gamma:
+        vSwitch: vSwitch0
+        VLAN:  1041
+      Labs_Iota:
+        vSwitch: vSwitch0
+        VLAN:  1042
+      Labs_Epsilon:
+        vSwitch: vSwitch0
+        VLAN:  1043
+      Labs_Zeta:
+        vSwitch: vSwitch0
+        VLAN:  1044
+      Labs_FulleMesos:
+        vSwitch: vSwitch0
+        VLAN:  1045
+      Labs_Bravo:
+        vSwitch: vSwitch0
+        VLAN:  1046
+      Labs_Whiskey:
+        vSwitch: vSwitch0
+        VLAN:  1047
+      Labs_Delta:
+        vSwitch: vSwitch0
+        VLAN:  1048
+      Labs_Ten:
+        vSwitch: vSwitch0
+        VLAN:  1049
+      Labs_Oscar:
+        vSwitch: vSwitch0
+        VLAN:  1050
+      Labs_Eleven:
+        vSwitch: vSwitch0
+        VLAN:  1051
+      Labs_Twelve:
+        vSwitch: vSwitch0
+        VLAN:  1052
+      Labs_Thirteen:
+        vSwitch: vSwitch0
+        VLAN:  1053
+      Labs_Fourteen:
+        vSwitch: vSwitch0
+        VLAN:  1054
+      Labs_Fifteen:
+        vSwitch: vSwitch0
+        VLAN:  1055
+      Labs_Sixteen:
+        vSwitch: vSwitch0
+        VLAN:  1056
+      Labs_Seventeen:
+        vSwitch: vSwitch0
+        VLAN:  1057
+      Labs_Eighteen:
+        vSwitch: vSwitch0
+        VLAN:  1058
+      Labs_Nineteen:
+        vSwitch: vSwitch0
+        VLAN:  1059
+      Labs_Twenty:
+        vSwitch: vSwitch0
+        VLAN:  1060
+      Labs_TwentyOne:
+        vSwitch: vSwitch0
+        VLAN:  1061
+      Labs_TwentyTwo:
+        vSwitch: vSwitch0
+        VLAN:  1062
+      Labs_TwentyThree:
+        vSwitch: vSwitch0
+        VLAN:  1063
+      Labs_CertificationPractices:
+        vSwitch: vSwitch0
+        VLAN:  1064
+      Labs_TwentyFive:
+        vSwitch: vSwitch0
+        VLAN:  1065
+      Labs_Certspractices:
+        vSwitch: vSwitch0
+        VLAN:  1066
+
+  tasks:
+    - name: Create vSwitch1
+      shell: esxcli network vswitch standard add --vswitch-name=vSwitch1
+      ignore_errors: yes
+
+    - name: Add Physical Adapter vmnic2
+      shell: esxcli network vswitch standard uplink add --uplink-name=vmnic2 --vswitch-name=vSwitch1
+      ignore_errors: yes
+
+    - name: Add Physical Adapter vmnic3
+      shell: esxcli network vswitch standard uplink add --uplink-name=vmnic3 --vswitch-name=vSwitch1
+      ignore_errors: yes
+
+    - name: Create vSwitch2
+      shell: esxcli network vswitch standard add --vswitch-name=vSwitch2
+      ignore_errors: yes
+
+    - name: Create iSCSI Network
+      shell: esxcli network vswitch standard portgroup add -p 'iSCSI' -v 'vSwitch1'
+      ignore_errors: yes
+
+    - name: Create iSCSI2 Network
+      shell: esxcli network vswitch standard portgroup add -p 'iSCSI2' -v 'vSwitch1'
+      ignore_errors: yes
+
+    - name: Create iSCSI_VM Network
+      shell: esxcli network vswitch standard portgroup add -p 'iSCSI_VM' -v 'vSwitch1'
+      ignore_errors: yes
+
+    - name: Create vMotion Network
+      shell: esxcli network vswitch standard portgroup add -p 'vMotion' -v 'vSwitch1'
+      ignore_errors: yes
+
+    - name: Configure iSCSI Network
+      shell: esxcli network vswitch standard portgroup set -p 'iSCSI' -v '120'
+      ignore_errors: yes
+
+    - name: Configure iSCSI2 Network
+      shell: esxcli network vswitch standard portgroup set -p 'iSCSI2' -v '120'
+      ignore_errors: yes
+
+    - name: Configure iSCSI_VM Network
+      shell: esxcli network vswitch standard portgroup set -p 'iSCSI_VM' -v '120'
+      ignore_errors: yes
+
+    - name: Configure vMotion Network
+      shell: esxcli network vswitch standard portgroup set -p 'vMotion' -v '40'
+      ignore_errors: yes
+
+    - name: Create Aislada Network
+      shell: esxcli network vswitch standard portgroup add -p 'Aislada' -v 'vSwitch2'
+      ignore_errors: yes
+
+    - name: Create vKerner1
+      shell: esxcli network ip interface add --interface-name=vmk1 -m 9000 --portgroup-name=iSCSI
+      ignore_errors: yes
+
+    - name: Create vKerner2
+      shell: esxcli network ip interface add --interface-name=vmk2 -m 9000 --portgroup-name=iSCSI2
+      ignore_errors: yes
+
+    - name: Create vKerner3
+      shell: esxcli network ip interface add --interface-name=vmk3 -m 9000 --portgroup-name=vMotion
+      ignore_errors: yes
+
+    # - name: Create portgroup
+    #   shell: esxcli network vswitch standard portgroup add -p '{{item.key}}' -v '{{item.value.vSwitch}}'
+    #   with_dict: "{{portgroup | default({})}}"
+    #   ignore_errors: yes
+
+    # - name: Configure VLAN portgroup
+    #   shell: esxcli network vswitch standard portgroup set -p '{{item.key}}' -v '{{item.value.VLAN}}'
+    #   with_dict: "{{portgroup | default({})}}"
+    #   ignore_errors: yes
+
+

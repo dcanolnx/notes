@@ -1,0 +1,16 @@
+#!/bin/bash
+
+# This script is intended to be run at login by the user. 
+# It will display the last login time of the user.
+# It will also display the number of failed login attempts since the last login.
+
+last_user_login=$(last $USER | grep -v "still" | egrep "tty" | egrep -v "(?:[0-9]{1,3}\.){3}[0-9]{1,3}" | head -n1 | awk '{print $3,$4,$5,$6}')
+
+zenity --info --ok-label 'Accept' --width=500 \
+--title 'NOTICE TO USERS' \
+--text="{{ last_login_message }} $last_user_login"
+
+# {{account_failed_tries_message_time}} $user_failed_login_last_time
+# {{account_failed_tries_message}} $user_failed_login_count"
+
+exit 0

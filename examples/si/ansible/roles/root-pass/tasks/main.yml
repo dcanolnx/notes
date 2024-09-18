@@ -1,0 +1,17 @@
+- name: "Generate root password"
+  local_action: shell < /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c8
+  register: pass
+  run_once: true
+  become: no
+       
+- name: "Print root password -----> COPY TO KEEPASS!!!!!!"
+  debug: msg="New root password ----> {{pass.stdout}} <----"
+
+- name: "Change root password"
+  user: name=root password={{ pass.stdout | password_hash('sha512', 'stratio') }}
+
+- name: "Copy password to /root/pls-dont-rm"
+  copy: content={{pass.stdout}} dest=/root/pls-dont-rm
+
+- name: "Enable root login"
+  lineinfile: dest=/etc/ssh/sshd_config regexp='^PermitRootLogin' line="PermitRootLogin without-password" state=absent  

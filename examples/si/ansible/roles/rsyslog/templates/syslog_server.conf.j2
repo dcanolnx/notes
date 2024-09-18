@@ -1,0 +1,21 @@
+## Template to use
+# template(name="stratio-log" type="list") {
+#     constant(value="<")
+#     property(name="syslogseverity-text" caseConversion="upper")
+#     constant(value=">")
+#     property(name="timereported" dateFormat="rfc3339")
+#     constant(value=" ")
+#     property(name="hostname")
+#     constant(value=" ")
+#     property(name="syslogfacility-text")
+#     constant(value=" ")
+#     property(name="app-name")
+#     constant(value=" : ")
+#     property(name="msg")
+# }
+
+## Forward logs to server
+*.*                         @{{ logstash_ip }}:{{ logstash_port }}
+
+
+# ### end of the forwarding rule ###

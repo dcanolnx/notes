@@ -1,0 +1,10 @@
+---
+- hosts: linux-users
+  become: true
+  roles:
+    - ens_workstation
+    - do_release
+  # post_tasks:
+  #   - name: Update last ansible execution on DB
+  #     shell: /bin/bash /security/stratio-security-dispatcher/update_user_lastexecution.sh {{ansible_hostname}}
+  #     delegate_to: localhost

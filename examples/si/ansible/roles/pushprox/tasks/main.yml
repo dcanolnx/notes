@@ -1,0 +1,10 @@
+---
+# tasks file for pushprox
+
+- name: Install pushprox-client
+  include_tasks: pushprox-client.yaml
+  when: pushprox_client
+
+- name: Install pushprox-proxy
+  include_tasks: pushprox-proxy.yaml
+  when: not pushprox_client

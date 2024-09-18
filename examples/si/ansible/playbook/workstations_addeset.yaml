@@ -1,0 +1,23 @@
+---
+- hosts: linux-users
+  become: true
+  vars:
+    change_password: false
+  tasks:
+    - name: Download the file using wget
+      command: wget -O /tmp/eeau.x86_64.bin https://download.eset.com/com/eset/apps/business/eea/linux/g2/latest/eeau.x86_64.bin
+      # Replace /path/to/your/file with the actual path where you want to save the file
+      # Replace https://example.com/yourfile with the URL of the file you want to download
+      register: wget_result
+
+    - name: Check if the download was successful
+      fail:
+        msg: "Download failed with status code {{ wget_result.rc }}"
+      when: wget_result.rc != 0
+
+    - name: Set file permissions
+      command: chmod +x /tmp/eeau.x86_64.bin
+      # Replace /path/to/your/file with the actual path to your downloaded file
+
+    - name: Execute the file
+      command: '/tmp/eeau.x86_64.bin -y -f'

@@ -1,0 +1,144 @@
+## ===================================================
+##  Hetzner Online GmbH - installimage - standardconfig
+## ===================================================
+
+
+## ====================
+##  HARD DISK DRIVE(S):
+## ====================
+{% for disk in host_disks %}
+DRIVE{{loop.index}} /dev/{{disk}}
+{% endfor %}
+
+{% if raid.enable %}
+## ===============
+##  SOFTWARE RAID:
+## ===============
+## activate software RAID?  < 0 | 1 >
+SWRAID 1
+
+## Choose the level for the software RAID < 0 | 1 | 10 >
+SWRAIDLEVEL {{raid.level}}
+{% endif %}
+
+## ============
+##  BOOTLOADER:
+## ============
+## Do not change. This image does not include or support lilo (grub only)!:
+BOOTLOADER grub
+
+## ==========
+##  HOSTNAME:
+## ==========
+## which hostname should be set?
+HOSTNAME {{inventory_hostname}}
+
+## ==========================
+##  PARTITIONS / FILESYSTEMS:
+## ==========================
+## define your partitions and filesystems like this:
+##
+## PART  <mountpoint/lvm>  <filesystem/VG>  <size in MB>
+##
+## * <mountpoint/lvm> mountpoint for this filesystem  *OR*  keyword 'lvm'
+##                    to use this PART as volume group (VG) for LVM
+## * <filesystem/VG>  can be ext2, ext3, reiserfs, xfs, swap  *OR*  name
+##                    of the LVM volume group (VG), if this PART is a VG
+## * <size>           you can use the keyword 'all' to assign all the
+##                    remaining space of the drive to the *last* partition.
+##                    you can use M/G/T for unit specification in MIB/GIB/TIB
+##
+## notes:
+##   - extended partitions are created automatically
+##   - '/boot' cannot be on a xfs filesystem!
+##   - '/boot' cannot be on LVM!
+##   - when using software RAID 0, you need a '/boot' partition
+##
+## example without LVM (default):
+## -> 4GB   swapspace
+## -> 512MB /boot
+## -> 10GB  /
+## -> 5GB   /tmp
+## -> all the rest to /home
+#PART swap   swap      4096
+#PART /boot  ext2       512
+#PART /      reiserfs 10240
+#PART /tmp   xfs       5120
+#PART /home  ext3       all
+#
+##
+## to activate LVM, you have to define volume groups and logical volumes
+##
+## example with LVM:
+#
+## normal filesystems and volume group definitions:
+## -> 512MB boot  (not on lvm)
+## -> all the rest for LVM VG 'vg0'
+{% for partition in partitions %}
+PART {{partition.name}}    {{partition.fs}}    {{partition.size}}
+{% endfor %}
+
+## logical volume definitions:
+#LV <VG> <name> <mount> <filesystem> <size>
+{% for lv in logical_volumes %}
+LV {{lv.vg}}    {{lv.name}}    {{lv.mount}}    {{lv.fs}}    {{lv.size}}
+{% endfor %}
+
+
+## your system has the following devices:
+#
+# Disk /dev/sda: 2000 GB (=> 1863 GiB)
+# Disk /dev/sdb: 2000 GB (=> 1863 GiB)
+#
+## Based on your disks and which RAID level you will choose you have
+## the following free space to allocate (in GiB):
+# RAID  0: ~3726
+# RAID  1: ~1863
+#
+
+#PART swap swap 16G
+#PART /boot ext3 512M
+#PART / ext4 all
+
+
+
+## ========================
+##  OPERATING SYSTEM IMAGE:
+## ========================
+
+## full path to the operating system image
+##   supported image sources:  local dir,  ftp,  http,  nfs
+##   supported image types: tar, tar.gz, tar.bz, tar.bz2, tar.xz, tgz, tbz, txz
+## examples:
+#
+# local: /path/to/image/filename.tar.gz
+# ftp:   ftp://<user>:<password>@hostname/path/to/image/filename.tar.bz2
+# http:  http://<user>:<password>@hostname/path/to/image/filename.tbz
+# https: https://<user>:<password>@hostname/path/to/image/filename.tbz
+# nfs:   hostname:/path/to/image/filename.tgz
+#
+# for validation of the image, place the detached gpg-signature
+# and your public key in the same directory as your image file.
+# naming examples:
+#  signature:   filename.tar.bz2.sig
+#  public key:  public-key.asc
+
+{% if operating_system is equalto "centos6" %}
+#CentOS6 Image File
+IMAGE /root/.oldroot/nfs/install/../images/CentOS-69-64-minimal.tar.gz
+{% endif %}
+
+{% if operating_system is equalto "centos7" %}
+#CentOS7 Image File
+IMAGE /root/.oldroot/nfs/install/../images/CentOS-76-64-minimal.tar.gz
+{% endif %}
+
+{% if operating_system is equalto "ubuntu16" %}
+#Ubuntu14-04 Image File
+IMAGE /root/.oldroot/nfs/install/../images/Ubuntu-1604-xenial-64-minimal.tar.gz
+{% endif %}
+
+{% if operating_system is equalto "ubuntu17" %}
+#Ubuntu16-04 Image File
+IMAGE /root/.oldroot/nfs/install/../images/Ubuntu-1704-zesty-64-minimal.tar.gz
+{% endif %}

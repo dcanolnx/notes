@@ -1,0 +1,35 @@
+---
+# tasks file for wazuh_workstation
+- name: Fail if not Ubuntu
+  fail: 
+    msg: "This role should only be run on Ubuntu and it is; {{ansible_distribution }}"
+  when: ansible_distribution != "Ubuntu"
+
+- name: Download Wazuh Ubuntu agent
+  get_url:
+    url: "{{ wazuh_agent_deb }}"
+    dest: "{{ wazuh_agent_deb_location }}"
+    mode: '0440'
+
+- name: Create IAM Policy - Download iam_policy.json
+  get_url:
+    url: https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.0/docs/install/iam_policy.json
+    dest: /tmp/iam_policy.json
+
+- name: Install Wazuh agent
+  shell: WAZUH_MANAGER='arcturus.stratio.com' WAZUH_AGENT_GROUP='Workstations_Linux' dpkg -i {{ wazuh_agent_deb_location }}
+
+- name: Reload systemd
+  systemd:
+     daemon-reload: yes
+
+- name: Enable the tomcat service and start
+  systemd:
+    name: wazuh-agent
+    enabled: yes
+    state: started
+
+- name: Delete wazuh Ubuntu agent
+  file:
+    path: "{{ wazuh_agent_deb_location }}"
+    state: absent

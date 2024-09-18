@@ -1,0 +1,5 @@
+---
+- hosts: ESXi_ClusterA
+  become: true
+  roles:
+    - wazuh-esxs

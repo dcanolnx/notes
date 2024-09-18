@@ -1,0 +1,20 @@
+FROM golang:alpine AS build
+
+RUN apk update &&  \
+    apk upgrade && \
+    apk add --no-cache git && \
+    go get -u github.com/czerwonk/ovirt_exporter
+    # cd /go/src/github.com/czerwonk/ovirt_exporter && \
+    # go build
+
+FROM alpine
+LABEL Description="Ovirt Exporter docker image"
+COPY --from=build /go/bin/ovirt_exporter /ovirt_exporter
+RUN apk update && \
+    apk upgrade && \
+    apk add --no-cache bash
+
+EXPOSE 9325/tcp
+
+ENTRYPOINT [ "/ovirt_exporter" ]
+#CMD [ "-auth-file", "/opt/fortigate-key.yaml" ]

@@ -1,0 +1,16 @@
+---
+## Es necesario tener instalado pyghmi para funcionar
+# $python3 -m pip install pyghmi
+
+#- hosts: fullerenos_mgmt
+- hosts: fullek8s_mgmt
+#- hosts: fullemesos_mgmt
+  gather_facts: False
+  roles:
+    - fullerenos-reinstall
+
+  vars:
+    ipmi_user:     ADMIN
+    ipmi_password: ""
+    ipmi_port:     623
+

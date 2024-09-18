@@ -1,0 +1,73 @@
+---
+# tasks file for ens
+
+- name: SSH - Copy Banner File
+  ansible.builtin.copy:
+    src:  "{{role_path}}/files/Banner.txt"
+    dest: "/etc/ssh/banner.txt"
+    mode: "0644"
+
+- name: SSH - Ensure the ssh Banner is configurated
+  ansible.builtin.lineinfile:
+    path:         "/etc/ssh/sshd_config"
+    regexp:       "^(#)?(Banner).*"
+    line:         "Banner /etc/ssh/banner.txt"
+
+- name: SSH - Ensure ClientAliveInterval is configurated
+  ansible.builtin.lineinfile:
+    path:         "/etc/ssh/sshd_config"
+    regexp:       "^(#)?(ClientAliveInterval).*"
+    line:         "ClientAliveInterval 60"
+
+- name: SSH - Ensure ClientAliveCountMax is configurated
+  ansible.builtin.lineinfile:
+    path:         "/etc/ssh/sshd_config"
+    regexp:       "^(#)?(#ClientAliveCountMax).*"
+    line:         "ClientAliveCountMax 3"
+
+- name: SSH - Ensure MaxAuthTries is configurated
+  ansible.builtin.lineinfile:
+    path:         "/etc/ssh/sshd_config"
+    regexp:       "^(#)?(#MaxAuthTries).*"
+    line:         "MaxAuthTries 3"
+
+- name: SSH - Restart SSHD daemon
+  ansible.builtin.systemd:
+    state:  restarted
+    name:   sshd
+  ignore_errors: true
+
+- name: Set timezone to Europe/Madrid
+  community.general.timezone:
+    name: Europe/Madrid
+
+- name: NTP - Install Chrony
+  ansible.builtin.package:
+    name: chrony
+    state: present
+
+- name: NTP - delete old servers
+  ansible.builtin.lineinfile:
+    path: /etc/chrony.conf
+    regexp: '^server (.*)centos.pool.ntp.org(.*)$'
+    state: absent
+
+- name: NTP - Configure server to ask
+  ansible.builtin.lineinfile:
+    path: /etc/chrony.conf
+    insertbefore: '# Please consider joining(.*)'
+    line: 'server hora.roa.es'
+
+- name: NTP - Force NTP time
+  command: "chronyd -q 'server hora.roa.es'"
+  ignore_errors: true
+
+- name: NTP - Enable and start Chrony
+  ansible.builtin.systemd:
+    state:    restarted
+    name:     "{{item}}"
+    enabled:  yes
+  with_items:
+    - chronyd
+    - ntpd
+  ignore_errors: true

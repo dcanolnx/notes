@@ -1,0 +1,12 @@
+[Unit]
+Description={{node_exporter_description}}
+After=local-fs.target network-online.target network.target
+Wants=local-fs.target network-online.target network.target
+
+[Service]
+Type=simple
+User={{node_exporter_user}}
+ExecStart={{node_exporter_installdir}}/node_exporter {% if node_exporter_systemd %} --collector.systemd {% endif %}
+
+[Install]
+WantedBy=multi-user.target

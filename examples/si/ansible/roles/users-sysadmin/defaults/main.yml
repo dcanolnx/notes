@@ -1,0 +1,9 @@
+---
+# defaults file for sysadmin-users
+sysadmins:
+    - dcano
+    - cmunoz
+sysadmins_group: sysadmin
+external: false
+rootlogin: false
+default_password: "$1$SomeSalt$l.aVzuVlAKMzQumBgv/2H."

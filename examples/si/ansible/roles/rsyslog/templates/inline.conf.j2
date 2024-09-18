@@ -1,0 +1,31 @@
+################ Example file to take file imput ########################
+## 
+# yum install -y wget
+# wget http://rpms.adiscon.com/v8-stable/rsyslog.repo
+# mv rsyslog.repo /etc/yum.repos.d/rsyslog.repo
+# yum info rsyslog --skip-broken
+# yum install -y rsyslog
+# rsyslogd -version
+
+# Module InFile
+# module(load="imfile" PollingInterval="10") #needs to be done just once
+
+#### INPUTS ####
+# Here you have an example configuration to take logs from file
+# input(type="imfile"
+#       File="/var/log/httpd/access_log"
+#       Tag="httpd"
+#       Severity="info"
+#       Facility="13"
+#       freshStartTail = "on"
+#       readMode = "2"
+#       PersistStateInterval = "1")
+
+# input(type="imfile"
+#       File="/var/log/httpd/error_log"
+#       Tag="httpd"
+#       Severity="error"
+#       Facility="13"
+#       freshStartTail = "on"
+#       readMode = "2"
+#       PersistStateInterval = "1")

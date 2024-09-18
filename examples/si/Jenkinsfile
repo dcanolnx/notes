@@ -1,0 +1,15 @@
+@Library('libpipelines') _
+
+hose {
+    EMAIL = 'sysinternal'
+    BUILDTOOL = 'docker'
+
+    DEV = { config ->
+        doDockers(conf: config,
+                  dockerImages:
+                    [
+                        [conf: config, dockerfile: 'docker/fluentd-stratioeks/Dockerfile', image: 'fluentd-stratioeks']
+                    ]
+                 )
+    }
+}

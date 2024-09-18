@@ -1,0 +1,20 @@
+# Configuración portgroups esxi
+- hosts: ESXi_ClusterA
+  become: true
+  vars:
+    portgroup:
+      
+      iSCSI_VM:
+        vSwitch: vSwitch1
+        VLAN: 120
+      
+  tasks:
+    - name: Create portgroup
+      shell: esxcli network vswitch standard portgroup add -p '{{item.key}}' -v '{{item.value.vSwitch}}'
+      with_dict: "{{portgroup | default({})}}"
+      ignore_errors: yes
+
+    - name: Configure VLAN portgroup
+      shell: esxcli network vswitch standard portgroup set -p '{{item.key}}' -v '{{item.value.VLAN}}'
+      with_dict: "{{portgroup | default({})}}"
+      ignore_errors: yes

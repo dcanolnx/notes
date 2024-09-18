@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=My Script
+Exec=/usr/local/bin/login_banner.sh
+Icon=system-run
+X-GNOME-Autostart-enabled=true

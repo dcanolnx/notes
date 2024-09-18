@@ -1,0 +1,21 @@
+---
+- hosts: machines
+  remote_user: root
+
+  vars:
+    interface_name: eth1
+    networks:
+      employees_eth:
+        vlan:     10
+        range:    10.10.10.0/255.255.255.0
+        ifc_ip:   10.10.10.2
+        gateway:  10.10.10.1
+      employees_wifi:
+        vlan:     11
+        range:    10.10.11.0/255.255.255.0
+        ifc_ip:   10.10.11.2
+        gateway:  10.10.11.1
+        
+
+  roles:
+    - '/home/hbermudez/Workspace/sistemas-interna/ansible/roles/dhcp-stratio-employees/' 

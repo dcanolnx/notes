@@ -1,0 +1,13 @@
+---
+- hosts: all
+  become: true
+  become_user: root
+  roles:
+   - node-exporter
+
+  vars:
+    node_exporter_version:  1.6.1
+    pushprox_version:       0.1.0
+    pushprox_client:        true
+    pushprox_proxy_ip:      arsenico.int.stratio.com
+    pushprox_proxy_port:    7070

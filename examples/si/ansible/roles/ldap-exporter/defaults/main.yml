@@ -1,0 +1,11 @@
+---
+# defaults file for node-exporter
+ldap_exporter_installdir:   "/usr/local/bin"
+ldap_exporter_url:          "https://github.com/tomcz/openldap_exporter/releases/download/v2.2.2/openldap_exporter-linux-amd64.gz"
+ldap_exporter_group:        stratio
+ldap_exporter_user:         exporters
+ldap_exporter_servicename:  ldap_exporter
+ldap_exporter_description:  "Prometheus LDAP-Exporter"
+ldap_exporter_systemd:      True
+ldap_exporter_home:         "/home/exporters"
+

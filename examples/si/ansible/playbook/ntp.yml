@@ -1,0 +1,7 @@
+---
+- hosts: monitored_hosts
+  user: root
+  become: true
+  become_user: root
+  roles:
+   - ntp

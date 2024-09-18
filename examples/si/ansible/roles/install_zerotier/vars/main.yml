@@ -1,0 +1,7 @@
+---
+# vars file for install_zerotier
+software_list:
+  - wget
+  - gpg
+  - apt-transport-https
+  - curl

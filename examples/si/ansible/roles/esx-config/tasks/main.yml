@@ -1,0 +1,123 @@
+---
+# tasks file for esx-config
+- name: Create and configure vSwitch
+  shell: |
+    esxcli network vswitch standard add -v vSwitch1; 
+    esxcli network vswitch standard add -v vSwitch2;
+    esxcli network vswitch standard set -m 9000 -v vSwitch1;
+
+- name: add vmnic to vSwitch
+  shell: |
+    esxcli network vswitch standard uplink add -v vSwitch0 -u '{{ item.value.VMNIC_vSwitch0_admon1 }}';
+    esxcli network vswitch standard uplink add -v vSwitch0 -u '{{ item.value.VMNIC_vSwitch0_admon2 }}';
+    esxcli network vswitch standard uplink add -v vSwitch1 -u '{{ item.value.VMNIC_vSwitch1_storage1 }}';
+    esxcli network vswitch standard uplink add -v vSwitch1 -u '{{ item.value.VMNIC_vSwitch1_storage2 }}';
+  loop: "{{ lookup('dict', ESX) }}"
+  ignore_errors: yes
+- name: PortGroup creation vSwitch0
+  shell: |
+    esxcfg-vswitch -A '{{ item.key }}' vSwitch0;
+  loop: "{{ lookup('dict', vSwitch0) }}"
+  ignore_errors: yes
+- name: PortGroup creation vSwitch1
+  shell: |
+    esxcfg-vswitch -A '{{ item.key }}' vSwitch1;
+  loop: "{{ lookup('dict', vSwitch1) }}"
+  ignore_errors: yes
+- name: PortGroup creation vSwitch2
+  shell: |
+    esxcfg-vswitch -A '{{ VLAN_vSwitch2 }}' vSwitch2;
+  ignore_errors: yes
+- name: set PortGroup ID vSwitch0
+  shell: |
+    esxcli network vswitch standard portgroup set -p '{{ item.key }}' -v '{{ item.value.VLAN_number }}';
+  loop: "{{ lookup('dict', vSwitch0) }}"
+  ignore_errors: yes
+- name: set PortGroup ID vSwitch1
+  shell: |
+    esxcli network vswitch standard portgroup set -p '{{ item.key }}' -v '{{ item.value.VLAN_number }}';
+  loop: "{{ lookup('dict', vSwitch1) }}"
+  ignore_errors: yes
+- name: Create vmk
+  shell: |
+    esxcli network ip interface add -i vmk1 -p vMotion -m 9000;
+    esxcli network ip interface add -i vmk2 -p iSCSI -m 9000;
+    esxcli network ip interface add -i vmk3 -p iSCSI2 -m 9000;
+    vim-cmd hostsvc/vmotion/vnic_set vmk1;
+- name: Configure vmk
+  shell: |
+    esxcli network ip interface ipv4 set -i vmk1 -I '{{ item.value.IP_vmotion }}' -N 255.255.255.0 -g 10.40.0.1 -t static;
+    esxcli network ip interface ipv4 set -i vmk2 -I '{{ item.value.IP_storage1 }}' -N 255.255.255.0 -g 10.140.0.1 -t static;
+    esxcli network ip interface ipv4 set -i vmk3 -I '{{ item.value.IP_storage2 }}' -N 255.255.255.0 -g 10.140.1.1 -t static;
+  loop: "{{ lookup('dict', ESX) }}"
+  
+- name: Set NTP config
+  shell: esxcli system ntp set -e yes -s minuto.roa.es -s hora.roa.es;
+- name: Configure Syslog on Wazuh
+  shell: |
+    esxcli system syslog config set --loghost='udp://wazuh-aws.int.stratio.com:514';
+    esxcli network firewall ruleset set --ruleset-id=syslog --enabled=true;
+    esxcli network firewall refresh;
+    esxcli system syslog reload;
+- name: Add ISCSI software adapter
+  shell: esxcli iscsi software set --enabled=true    
+
+- name: Create and configure vSwitch
+  shell: |
+    esxcli network vswitch standard add -v vSwitch1; 
+    esxcli network vswitch standard add -v vSwitch2;
+    esxcli network vswitch standard set -m 9000 -v vSwitch1;
+
+- name: add vmnic to vSwitch
+  shell: |
+    esxcli network vswitch standard uplink add -v vSwitch0 -u vmnic'{{item.VMNIC_management}}';
+    esxcli network vswitch standard uplink add -v vSwitch1 -u vmnic'{{item.VMNIC_storage}}';
+  with_items: "{{ ESX_name_list_of_dicts }}"
+- name: PortGroup creation
+  shell: |
+    esxcfg-vswitch -A '{{VLAN_name}}' vSwitch'{{vSwitch}}';
+- name: set PortGroup ID
+  shell: |
+    esxcli network vswitch standard portgroup set -p '{{VLAN_name}}' -v '{{VLAN_number}}';
+- name: Create vmk
+  shell: |
+    esxcli network ip interface add -i vmk1 -p vMotion -m 9000;
+    esxcli network ip interface add -i vmk2 -p iSCSI -m 9000;
+    esxcli network ip interface add -i vmk3 -p iSCSI2 -m 9000;
+    vim-cmd hostsvc/vmotion/vnic_set vmk1;
+- name: Configure vmk
+  shell: |
+    esxcli network ip interface ipv4 set -i vmk1 -I '{{IP_vmotion}}' -N 255.255.255.0 -g 10.40.0.1 -t static;
+    esxcli network ip interface ipv4 set -i vmk2 -I '{{IP_storage1}}' -N 255.255.255.0 -g 10.140.0.1 -t static;
+    esxcli network ip interface ipv4 set -i vmk3 -I '{{IP_storage2}}' -N 255.255.255.0 -g 10.140.1.1 -t static;
+- name: Set NTP config
+  shell: esxcli system ntp set -e yes -s minuto.roa.es -s hora.roa.es;
+- name: Configure Syslog on Wazuh
+  shell: |
+    esxcli system syslog config set --loghost='udp://wazuh-aws.int.stratio.com:514';
+    esxcli network firewall ruleset set --ruleset-id=syslog --enabled=true;
+    esxcli network firewall refresh;
+    esxcli system syslog reload;
+- name: Add ISCSI software adapter
+  shell: esxcli iscsi software set --enabled=true
+#- name: add Rundeck key
+#  shell: cat /var/lib/rundeck/.ssh/id_rsa.pub >> /etc/ssh/keys-root/authorized_key
+- name: Gather vmware host facts from vCenter
+  community.vmware.vmware_host_facts:
+    hostname: "{{ vcenter_hostname }}"
+    username: "{{ vcenter_username }}"
+    password: "{{ vcenter_password }}"
+    esxi_hostname: "{{ item.key }}"
+  register: host_facts
+  delegate_to: localhost
+  loop: "{{ lookup('dict', ESX) }}"
+- name: Print vmware host facts from vCenter
+  ansible.builtin.debug:
+     msg: "{{ host_facts }}"
+- name: CVE-2018-3646 solution
+  ansible.builtin.command: esxcli system settings kernel set -s hyperthreadingMitigation -v TRUE
+  ansible.builtin.command: reboot
+  when: 
+    - (host_facts['ansible_facts']['ansible_processor'] == "Intel(R) Xeon(R) CPU E5-2630 v3 @ 2.40GHz") or
+      (host_facts['ansible_facts']['ansible_processor'] == "Intel(R) Xeon(R) Gold 6138 CPU @ 2.00GHz") or
+      (host_facts['ansible_facts']['ansible_processor'] == "Intel(R) Xeon(R) CPU E5-2623 v3 @ 3.00GHz")

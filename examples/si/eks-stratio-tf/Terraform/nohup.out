@@ -1,0 +1,585 @@
+ERROR:  getaddrinfo: Temporary failure in name resolution
+INFO:   Closed connection to gateway.
+ERROR:  connect: Connection refused
+INFO:   Could not log out.
+INFO:   Connected to gateway.
+INFO:   Authenticated.
+INFO:   Remote gateway has allocated a VPN.
+Using interface ppp0
+Connect: ppp0 <--> /dev/pts/3
+INFO:   Got addresses: [10.110.0.8], ns [10.120.0.2, 10.120.0.42]
+INFO:   negotiation complete
+INFO:   negotiation complete
+local  IP address 10.110.0.8
+remote IP address 192.0.2.1
+primary   DNS address 10.120.0.2
+secondary DNS address 10.120.0.42
+INFO:   Interface ppp0 is UP.
+INFO:   Setting new routes...
+WARN:   Route to gateway exists already.
+WARN:   Route to gateway exists already.
+WARN:   Route to gateway exists already.
+INFO:   Adding VPN nameservers...
+INFO:   Tunnel is up and running.
+No response to 4 echo-requests
+Serial link appears to be disconnected.
+Connect time 245.2 minutes.
+Sent 1213682 bytes, received 9849212 bytes.
+Connection terminated.
+Modem hangup
+ERROR:  read: Input/output error
+INFO:   Cancelling threads...
+INFO:   Setting ppp interface down.
+INFO:   Restoring routes...
+WARN:   Could not delete route to vpn server (No such device).
+INFO:   Removing VPN nameservers...
+INFO:   pppd: The link was terminated by the modem hanging up.
+INFO:   Terminated pppd.
+INFO:   Closed connection to gateway.
+ERROR:  connect: Network is unreachable
+INFO:   Could not log out.
+INFO:   Connected to gateway.
+INFO:   Authenticated.
+INFO:   Remote gateway has allocated a VPN.
+Using interface ppp0
+Connect: ppp0 <--> /dev/pts/3
+INFO:   Got addresses: [10.110.0.5], ns [10.120.0.2, 10.120.0.42]
+INFO:   negotiation complete
+INFO:   negotiation complete
+local  IP address 10.110.0.5
+remote IP address 192.0.2.1
+primary   DNS address 10.120.0.2
+secondary DNS address 10.120.0.42
+INFO:   Interface ppp0 is UP.
+INFO:   Setting new routes...
+WARN:   Route to gateway exists already.
+WARN:   Route to gateway exists already.
+WARN:   Route to gateway exists already.
+INFO:   Adding VPN nameservers...
+INFO:   Tunnel is up and running.
+INFO:   Connected to gateway.
+INFO:   Authenticated.
+INFO:   Remote gateway has allocated a VPN.
+Using interface ppp1
+Connect: ppp1 <--> /dev/pts/5
+INFO:   Got addresses: [10.110.0.6], ns [10.120.0.2, 10.120.0.42]
+INFO:   negotiation complete
+INFO:   negotiation complete
+local  IP address 10.110.0.6
+remote IP address 192.0.2.1
+primary   DNS address 10.120.0.2
+secondary DNS address 10.120.0.42
+INFO:   Interface ppp1 is UP.
+INFO:   Setting new routes...
+WARN:   Route to gateway exists already.
+WARN:   Route to gateway exists already.
+WARN:   Route to gateway exists already.
+INFO:   Adding VPN nameservers...
+INFO:   Tunnel is up and running.
+No response to 4 echo-requests
+Serial link appears to be disconnected.
+Connect time 155.2 minutes.
+Sent 1935370 bytes, received 7255042 bytes.
+Connection terminated.
+Modem hangup
+ERROR:  read: Input/output error
+INFO:   Cancelling threads...
+INFO:   Setting ppp interface down.
+INFO:   Restoring routes...
+WARN:   Could not delete route to vpn server (No such device).
+INFO:   Removing VPN nameservers...
+INFO:   pppd: The link was terminated by the modem hanging up.
+INFO:   Terminated pppd.
+INFO:   Closed connection to gateway.
+ERROR:  connect: Network is unreachable
+INFO:   Could not log out.
+No response to 4 echo-requests
+Serial link appears to be disconnected.
+Connect time 265.3 minutes.
+Sent 2967809 bytes, received 7615245 bytes.
+Connection terminated.
+Modem hangup
+ERROR:  read: Input/output error
+INFO:   Cancelling threads...
+INFO:   Setting ppp interface down.
+INFO:   Restoring routes...
+WARN:   Could not delete route to vpn server (No such device).
+INFO:   Removing VPN nameservers...
+INFO:   pppd: The link was terminated by the modem hanging up.
+INFO:   Terminated pppd.
+INFO:   Closed connection to gateway.
+ERROR:  connect: Network is unreachable
+INFO:   Could not log out.
+INFO:   Connected to gateway.
+INFO:   Authenticated.
+INFO:   Remote gateway has allocated a VPN.
+Using interface ppp0
+Connect: ppp0 <--> /dev/pts/3
+INFO:   Got addresses: [10.110.0.4], ns [10.120.0.2, 10.120.0.42]
+INFO:   negotiation complete
+INFO:   negotiation complete
+local  IP address 10.110.0.4
+remote IP address 192.0.2.1
+primary   DNS address 10.120.0.2
+secondary DNS address 10.120.0.42
+INFO:   Interface ppp0 is UP.
+INFO:   Setting new routes...
+WARN:   Route to gateway exists already.
+WARN:   Route to gateway exists already.
+WARN:   Route to gateway exists already.
+INFO:   Adding VPN nameservers...
+INFO:   Tunnel is up and running.
+No response to 4 echo-requests
+Serial link appears to be disconnected.
+Connect time 231.7 minutes.
+Sent 2664255 bytes, received 9993494 bytes.
+Connection terminated.
+Modem hangup
+ERROR:  read: Input/output error
+INFO:   Cancelling threads...
+INFO:   Setting ppp interface down.
+INFO:   Restoring routes...
+WARN:   Could not delete route to vpn server (No such device).
+INFO:   Removing VPN nameservers...
+INFO:   pppd: The link was terminated by the modem hanging up.
+INFO:   Terminated pppd.
+INFO:   Closed connection to gateway.
+ERROR:  connect: Network is unreachable
+INFO:   Could not log out.
+INFO:   Connected to gateway.
+INFO:   Authenticated.
+INFO:   Remote gateway has allocated a VPN.
+Using interface ppp0
+Connect: ppp0 <--> /dev/pts/2
+INFO:   Got addresses: [10.110.0.5], ns [10.120.0.2, 10.120.0.42]
+INFO:   negotiation complete
+INFO:   negotiation complete
+local  IP address 10.110.0.5
+remote IP address 192.0.2.1
+primary   DNS address 10.120.0.2
+secondary DNS address 10.120.0.42
+INFO:   Interface ppp0 is UP.
+INFO:   Setting new routes...
+WARN:   Route to gateway exists already.
+WARN:   Route to gateway exists already.
+WARN:   Route to gateway exists already.
+INFO:   Adding VPN nameservers...
+INFO:   Tunnel is up and running.
+INFO:   Connected to gateway.
+INFO:   Authenticated.
+INFO:   Remote gateway has allocated a VPN.
+Using interface ppp0
+Connect: ppp0 <--> /dev/pts/2
+INFO:   Got addresses: [10.110.0.5], ns [10.120.0.2, 10.120.0.42]
+INFO:   negotiation complete
+INFO:   negotiation complete
+local  IP address 10.110.0.5
+remote IP address 192.0.2.1
+primary   DNS address 10.120.0.2
+secondary DNS address 10.120.0.42
+INFO:   Interface ppp0 is UP.
+INFO:   Setting new routes...
+WARN:   Route to gateway exists already.
+WARN:   Route to gateway exists already.
+WARN:   Route to gateway exists already.
+INFO:   Adding VPN nameservers...
+INFO:   Tunnel is up and running.
+No response to 4 echo-requests
+Serial link appears to be disconnected.
+Connect time 125.6 minutes.
+Sent 6413373 bytes, received 101856872 bytes.
+Connection terminated.
+Modem hangup
+ERROR:  read: Input/output error
+INFO:   Cancelling threads...
+INFO:   Setting ppp interface down.
+INFO:   Restoring routes...
+WARN:   Could not delete route to vpn server (No such device).
+INFO:   Removing VPN nameservers...
+INFO:   pppd: The link was terminated by the modem hanging up.
+INFO:   Terminated pppd.
+INFO:   Closed connection to gateway.
+ERROR:  connect: Network is unreachable
+INFO:   Could not log out.
+ERROR:  getaddrinfo: Temporary failure in name resolution
+INFO:   Closed connection to gateway.
+ERROR:  connect: Connection refused
+INFO:   Could not log out.
+ERROR:  getaddrinfo: Temporary failure in name resolution
+INFO:   Closed connection to gateway.
+ERROR:  connect: Connection refused
+INFO:   Could not log out.
+INFO:   Connected to gateway.
+INFO:   Authenticated.
+INFO:   Remote gateway has allocated a VPN.
+Using interface ppp0
+Connect: ppp0 <--> /dev/pts/2
+INFO:   Got addresses: [10.110.0.3], ns [10.120.0.2, 10.120.0.42]
+INFO:   negotiation complete
+INFO:   negotiation complete
+local  IP address 10.110.0.3
+remote IP address 192.0.2.1
+primary   DNS address 10.120.0.2
+secondary DNS address 10.120.0.42
+INFO:   Interface ppp0 is UP.
+INFO:   Setting new routes...
+WARN:   Route to gateway exists already.
+WARN:   Route to gateway exists already.
+WARN:   Route to gateway exists already.
+INFO:   Adding VPN nameservers...
+INFO:   Tunnel is up and running.
+No response to 4 echo-requests
+Serial link appears to be disconnected.
+Connect time 61.6 minutes.
+Sent 2302864 bytes, received 8867939 bytes.
+Connection terminated.
+Modem hangup
+ERROR:  read: Input/output error
+INFO:   Cancelling threads...
+INFO:   Setting ppp interface down.
+INFO:   Restoring routes...
+WARN:   Could not delete route to vpn server (No such device).
+INFO:   Removing VPN nameservers...
+INFO:   pppd: The link was terminated by the modem hanging up.
+INFO:   Terminated pppd.
+INFO:   Closed connection to gateway.
+ERROR:  connect: Network is unreachable
+INFO:   Could not log out.
+INFO:   Connected to gateway.
+INFO:   Connected to gateway.
+INFO:   Authenticated.
+INFO:   Authenticated.
+INFO:   Remote gateway has allocated a VPN.
+INFO:   Remote gateway has allocated a VPN.
+Using interface ppp0
+Connect: ppp0 <--> /dev/pts/7
+Using interface ppp1
+Connect: ppp1 <--> /dev/pts/8
+INFO:   Got addresses: [10.110.0.6], ns [10.120.0.2, 10.120.0.42]
+INFO:   negotiation complete
+INFO:   Got addresses: [10.110.0.7], ns [10.120.0.2, 10.120.0.42]
+INFO:   negotiation complete
+INFO:   negotiation complete
+INFO:   negotiation complete
+local  IP address 10.110.0.7
+remote IP address 192.0.2.1
+primary   DNS address 10.120.0.2
+local  IP address 10.110.0.6
+remote IP address 192.0.2.1
+primary   DNS address 10.120.0.2
+secondary DNS address 10.120.0.42
+secondary DNS address 10.120.0.42
+INFO:   Interface ppp0 is UP.
+INFO:   Setting new routes...
+WARN:   Route to gateway exists already.
+WARN:   Route to gateway exists already.
+WARN:   Route to gateway exists already.
+INFO:   Adding VPN nameservers...
+INFO:   Tunnel is up and running.
+INFO:   Interface ppp1 is UP.
+INFO:   Setting new routes...
+WARN:   Route to vpn server exists already.
+WARN:   Route to gateway exists already.
+WARN:   Route to gateway exists already.
+WARN:   Route to gateway exists already.
+INFO:   Adding VPN nameservers...
+INFO:   Tunnel is up and running.
+INFO:   Connected to gateway.
+INFO:   Authenticated.
+INFO:   Remote gateway has allocated a VPN.
+Using interface ppp2
+Connect: ppp2 <--> /dev/pts/10
+INFO:   Got addresses: [10.110.0.8], ns [10.120.0.2, 10.120.0.42]
+INFO:   negotiation complete
+INFO:   negotiation complete
+local  IP address 10.110.0.8
+remote IP address 192.0.2.1
+primary   DNS address 10.120.0.2
+secondary DNS address 10.120.0.42
+INFO:   Interface ppp2 is UP.
+INFO:   Setting new routes...
+WARN:   Route to vpn server exists already.
+WARN:   Route to gateway exists already.
+WARN:   Route to gateway exists already.
+WARN:   Route to gateway exists already.
+INFO:   Adding VPN nameservers...
+INFO:   Tunnel is up and running.
+No response to 4 echo-requests
+Serial link appears to be disconnected.
+Connect time 214.7 minutes.
+Sent 1116043 bytes, received 6469721 bytes.
+No response to 4 echo-requests
+Serial link appears to be disconnected.
+Connect time 216.7 minutes.
+Sent 117992 bytes, received 59124 bytes.
+No response to 4 echo-requests
+Serial link appears to be disconnected.
+Connect time 216.7 minutes.
+Sent 97213 bytes, received 0 bytes.
+Connection terminated.
+Modem hangup
+ERROR:  read: Input/output error
+INFO:   Cancelling threads...
+INFO:   Setting ppp interface down.
+INFO:   Restoring routes...
+INFO:   Removing VPN nameservers...
+INFO:   pppd: The link was terminated by the modem hanging up.
+INFO:   Terminated pppd.
+INFO:   Closed connection to gateway.
+ERROR:  connect: Network is unreachable
+INFO:   Could not log out.
+Connection terminated.
+Modem hangup
+ERROR:  read: Input/output error
+INFO:   Cancelling threads...
+INFO:   Setting ppp interface down.
+INFO:   Restoring routes...
+INFO:   Removing VPN nameservers...
+INFO:   pppd: The link was terminated by the modem hanging up.
+INFO:   Terminated pppd.
+INFO:   Closed connection to gateway.
+ERROR:  connect: Network is unreachable
+INFO:   Could not log out.
+Connection terminated.
+Modem hangup
+ERROR:  read: Input/output error
+INFO:   Cancelling threads...
+INFO:   Setting ppp interface down.
+INFO:   Restoring routes...
+WARN:   Could not delete route to vpn server (No such device).
+INFO:   Removing VPN nameservers...
+INFO:   pppd: The link was terminated by the modem hanging up.
+INFO:   Terminated pppd.
+INFO:   Closed connection to gateway.
+ERROR:  connect: Network is unreachable
+INFO:   Could not log out.
+INFO:   Connected to gateway.
+INFO:   Authenticated.
+INFO:   Remote gateway has allocated a VPN.
+Using interface ppp0
+Connect: ppp0 <--> /dev/pts/2
+INFO:   Got addresses: [10.110.0.4], ns [10.120.0.2, 10.120.0.42]
+INFO:   negotiation complete
+INFO:   negotiation complete
+local  IP address 10.110.0.4
+remote IP address 192.0.2.1
+primary   DNS address 10.120.0.2
+secondary DNS address 10.120.0.42
+INFO:   Interface ppp0 is UP.
+INFO:   Setting new routes...
+WARN:   Route to gateway exists already.
+WARN:   Route to gateway exists already.
+WARN:   Route to gateway exists already.
+INFO:   Adding VPN nameservers...
+INFO:   Tunnel is up and running.
+No response to 4 echo-requests
+Serial link appears to be disconnected.
+Connect time 3.5 minutes.
+Sent 252541 bytes, received 228337 bytes.
+Connection terminated.
+Modem hangup
+ERROR:  read: Input/output error
+INFO:   Cancelling threads...
+INFO:   Setting ppp interface down.
+INFO:   Restoring routes...
+WARN:   Could not delete route to vpn server (No such device).
+INFO:   Removing VPN nameservers...
+INFO:   pppd: The link was terminated by the modem hanging up.
+INFO:   Terminated pppd.
+INFO:   Closed connection to gateway.
+ERROR:  connect: Network is unreachable
+INFO:   Could not log out.
+INFO:   Connected to gateway.
+INFO:   Authenticated.
+INFO:   Remote gateway has allocated a VPN.
+Using interface ppp0
+Connect: ppp0 <--> /dev/pts/2
+INFO:   Got addresses: [10.110.0.5], ns [10.120.0.2, 10.120.0.42]
+INFO:   negotiation complete
+INFO:   negotiation complete
+local  IP address 10.110.0.5
+remote IP address 192.0.2.1
+primary   DNS address 10.120.0.2
+secondary DNS address 10.120.0.42
+INFO:   Interface ppp0 is UP.
+INFO:   Setting new routes...
+WARN:   Route to gateway exists already.
+WARN:   Route to gateway exists already.
+WARN:   Route to gateway exists already.
+INFO:   Adding VPN nameservers...
+INFO:   Tunnel is up and running.
+No response to 4 echo-requests
+Serial link appears to be disconnected.
+Connect time 75.1 minutes.
+Sent 27703362 bytes, received 9917053 bytes.
+Connection terminated.
+Modem hangup
+ERROR:  read: Input/output error
+INFO:   Cancelling threads...
+INFO:   Setting ppp interface down.
+INFO:   Restoring routes...
+INFO:   Removing VPN nameservers...
+INFO:   pppd: The link was terminated by the modem hanging up.
+INFO:   Terminated pppd.
+INFO:   Closed connection to gateway.
+ERROR:  SSL_connect: error:00000000:lib(0):func(0):reason(0)
+You might want to try --insecure-ssl or specify a different --cipher-list
+INFO:   Could not log out.
+INFO:   Connected to gateway.
+INFO:   Authenticated.
+INFO:   Remote gateway has allocated a VPN.
+Using interface ppp1
+Connect: ppp1 <--> /dev/pts/5
+INFO:   Got addresses: [10.110.0.4], ns [10.120.0.2, 10.120.0.42]
+INFO:   negotiation complete
+INFO:   negotiation complete
+local  IP address 10.110.0.4
+remote IP address 192.0.2.1
+primary   DNS address 10.120.0.2
+secondary DNS address 10.120.0.42
+INFO:   Interface ppp1 is UP.
+INFO:   Setting new routes...
+WARN:   Route to vpn server exists already.
+WARN:   Route to gateway exists already.
+WARN:   Route to gateway exists already.
+WARN:   Route to gateway exists already.
+INFO:   Adding VPN nameservers...
+INFO:   Tunnel is up and running.
+No response to 4 echo-requests
+Serial link appears to be disconnected.
+Connect time 32.1 minutes.
+Sent 6178371 bytes, received 4917009 bytes.
+Connection terminated.
+Modem hangup
+ERROR:  read: Input/output error
+INFO:   Cancelling threads...
+INFO:   Setting ppp interface down.
+INFO:   Restoring routes...
+INFO:   Removing VPN nameservers...
+INFO:   pppd: The link was terminated by the modem hanging up.
+INFO:   Terminated pppd.
+INFO:   Closed connection to gateway.
+ERROR:  connect: Network is unreachable
+INFO:   Could not log out.
+INFO:   Connected to gateway.
+INFO:   Authenticated.
+INFO:   Remote gateway has allocated a VPN.
+Using interface ppp0
+Connect: ppp0 <--> /dev/pts/4
+INFO:   Got addresses: [10.110.0.4], ns [10.120.0.2, 10.120.0.42]
+INFO:   negotiation complete
+INFO:   negotiation complete
+local  IP address 10.110.0.4
+remote IP address 192.0.2.1
+primary   DNS address 10.120.0.2
+secondary DNS address 10.120.0.42
+INFO:   Interface ppp0 is UP.
+INFO:   Setting new routes...
+WARN:   Route to gateway exists already.
+WARN:   Route to gateway exists already.
+WARN:   Route to gateway exists already.
+INFO:   Adding VPN nameservers...
+INFO:   Tunnel is up and running.
+INFO:   Cancelling threads...
+INFO:   Setting ppp interface down.
+INFO:   Restoring routes...
+INFO:   Removing VPN nameservers...
+Hangup (SIGHUP)
+Connect time 10.7 minutes.
+Sent 359962 bytes, received 2758720 bytes.
+Modem hangup
+Connection terminated.
+INFO:   pppd: The link was terminated by the modem hanging up.
+INFO:   Terminated pppd.
+INFO:   Closed connection to gateway.
+INFO:   Logged out.
+INFO:   Connected to gateway.
+ERROR:  Could not authenticate to gateway. Please check the password, client certificate, etc.
+INFO:   Closed connection to gateway.
+INFO:   Logged out.
+ERROR:  getaddrinfo: Temporary failure in name resolution
+INFO:   Closed connection to gateway.
+ERROR:  connect: Connection refused
+INFO:   Could not log out.
+INFO:   Connected to gateway.
+ERROR:  Could not authenticate to gateway. Please check the password, client certificate, etc.
+INFO:   Closed connection to gateway.
+INFO:   Logged out.
+ERROR:  getaddrinfo: Temporary failure in name resolution
+INFO:   Closed connection to gateway.
+ERROR:  connect: Connection refused
+INFO:   Could not log out.
+INFO:   Connected to gateway.
+INFO:   Authenticated.
+INFO:   Remote gateway has allocated a VPN.
+Using interface ppp0
+Connect: ppp0 <--> /dev/pts/3
+INFO:   Got addresses: [10.110.0.5], ns [10.120.0.2, 10.120.0.42]
+INFO:   negotiation complete
+INFO:   negotiation complete
+local  IP address 10.110.0.5
+remote IP address 192.0.2.1
+primary   DNS address 10.120.0.2
+secondary DNS address 10.120.0.42
+INFO:   Interface ppp0 is UP.
+INFO:   Setting new routes...
+WARN:   Route to gateway exists already.
+WARN:   Route to gateway exists already.
+WARN:   Route to gateway exists already.
+INFO:   Adding VPN nameservers...
+INFO:   Tunnel is up and running.
+No response to 4 echo-requests
+Serial link appears to be disconnected.
+Connect time 18.5 minutes.
+Sent 150969 bytes, received 466257 bytes.
+Connection terminated.
+Modem hangup
+ERROR:  read: Input/output error
+INFO:   Cancelling threads...
+INFO:   Setting ppp interface down.
+INFO:   Restoring routes...
+WARN:   Could not delete route to vpn server (No such device).
+INFO:   Removing VPN nameservers...
+INFO:   pppd: The link was terminated by the modem hanging up.
+INFO:   Terminated pppd.
+INFO:   Closed connection to gateway.
+ERROR:  connect: Network is unreachable
+INFO:   Could not log out.
+INFO:   Connected to gateway.
+INFO:   Authenticated.
+INFO:   Remote gateway has allocated a VPN.
+Using interface ppp0
+Connect: ppp0 <--> /dev/pts/3
+INFO:   Got addresses: [10.110.0.5], ns [10.120.0.2, 10.120.0.42]
+INFO:   negotiation complete
+INFO:   negotiation complete
+local  IP address 10.110.0.5
+remote IP address 192.0.2.1
+primary   DNS address 10.120.0.2
+secondary DNS address 10.120.0.42
+INFO:   Interface ppp0 is UP.
+INFO:   Setting new routes...
+WARN:   Route to gateway exists already.
+WARN:   Route to gateway exists already.
+WARN:   Route to gateway exists already.
+INFO:   Adding VPN nameservers...
+INFO:   Tunnel is up and running.
+No response to 4 echo-requests
+Serial link appears to be disconnected.
+Connect time 33.1 minutes.
+Sent 1139450 bytes, received 3467018 bytes.
+Connection terminated.
+ERROR:  read: Input/output error
+INFO:   Cancelling threads...
+INFO:   Setting ppp interface down.
+INFO:   Restoring routes...
+WARN:   Could not delete route to vpn server (No such process).
+INFO:   Removing VPN nameservers...
+ERROR:  pppd: The link was terminated because the peer is not responding to echo requests.
+INFO:   Terminated pppd.
+INFO:   Closed connection to gateway.
+INFO:   Logged out.
+ERROR:  getaddrinfo: Temporary failure in name resolution
+INFO:   Closed connection to gateway.
+ERROR:  connect: Connection refused
+INFO:   Could not log out.

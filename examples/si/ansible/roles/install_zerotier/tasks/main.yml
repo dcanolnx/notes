@@ -1,0 +1,51 @@
+---
+- name: Install pkg add repos
+  apt:
+    name: "{{ item }}"
+    state: present
+  loop: "{{ software_list }}"
+
+- name: Import key GPG Zerotier
+  apt_key:
+    url: https://raw.githubusercontent.com/zerotier/ZeroTierOne/master/doc/contact%40zerotier.com.gpg
+    state: present
+
+- name: Add repo Ubuntu 20 Zerotier
+  apt_repository:
+    repo: "deb http://download.zerotier.com/debian/focal focal main"
+    state: present
+    filename: zerotier
+  when: ansible_distribution_release == 'focal'
+
+- name: Add repo Ubuntu 18 Zerotier
+  apt_repository:
+    repo: "deb http://download.zerotier.com/debian/bionic bionic main"
+    state: present
+    filename: zerotier
+  when: ansible_distribution_release == 'bionic'
+
+- name: Update list pkg
+  apt:
+    update_cache: yes
+
+- name: Install Zerotier-one
+  apt:
+    name: zerotier-one
+    state: present
+
+- name: Init and enabled ZeroTier service
+  ansible.builtin.service:
+    name: zerotier-one
+    state: started
+    enabled: yes
+
+- name: Conect ZeroTier client
+  command: zerotier-cli join "{{ NETWORK }}"
+#  register: zerotier_join_output
+#  changed_when: '"200 join OK" in zerotier_join_output.stdout'
+#
+#- name: Guardar el ID del cliente ZeroTier
+#  ansible.builtin.copy:
+#    content: "{{ zerotier_join_output.stdout_lines[0].split()[3] }}"
+#    dest: ~/.zerotier-id
+#    mode: '0600'
