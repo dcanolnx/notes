@@ -1,0 +1,26 @@
+#- name: "Change descriptor.json schemaVersion when version is -M*"
+#  shell: "docker exec -it paas-bootstrap  "
+#  when: 0 == {{ eos_version.split(".")[0] }}
+#  
+#- name: "Change descriptor.json schemaVersion when version is not -M*"
+#  shell: "docker exec -it paas-bootstrap  "
+##  when: 1 == {{ eos_version.split(".")[0] }} 
+- shell: cat /stratio_volume/descriptor.json
+  register: descriptor
+
+- set_fact: descriptor_json="{{ descriptor.stdout|from_json }}"
+
+- debug:
+    var: descriptor_json
+    
+- debug:    
+    var: descriptor_json.security.overlayNetwork.addressPool
+- debug:
+    var: descriptor_json.security.overlayNetwork.routers[0].ASNumber
+
+
+##- name:
+  ##shell: "docker exec -it paas-bootstrap  "
+  ##when: 0 == {{ eos_version.split(".")[0] }}
+##- name:
+#- name:

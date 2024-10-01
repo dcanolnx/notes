@@ -1,0 +1,59 @@
+---
+- name: Check if pki exists in workspace
+  stat:
+    path: "{{ pki_path }}"
+  register: custom_pki_dir
+
+- name: Create dirs
+  file:
+    path: "{{ item }}"
+    state: directory
+    recurse: yes
+  with_items:
+    - "{{ pki_path }}"
+    - "{{ pki_certs_temp }}"
+    - "{{ pki_db_path }}"
+
+- stat:
+    path: "{{ pki_db_path }}/index"
+  register: file_index
+
+- name: Create index
+  file:
+    path: "{{ pki_db_path }}/index"
+    state: touch
+  when: not file_index.stat.exists
+
+- stat:
+   path: "{{ pki_db_path }}/serial"
+  register: file_serial
+
+- name: Create serial
+  copy:
+    content: 1000
+    dest: "{{ pki_db_path }}/serial"
+  when: not file_serial.stat.exists
+
+- name: Create pki
+  import_tasks: create.yml
+  when: not custom_pki_dir.stat.exists
+
+- name: Test CA by creating dummy certificate
+  import_role:
+    name: eos-pki
+    tasks_from: gencert
+  vars:
+    cn: "testcert.{{ pki_domain }}"
+    extended_key_usage:
+      - serverAuth
+  changed_when: no
+  become: no
+
+- name: Clean CA test dummy certificate and key
+  file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - "{{ pki_gencert_path }}/{{ cn }}/{{ cn }}.key"
+    - "{{ pki_gencert_path }}/{{ cn }}/{{ cn }}.crt"
+  when: custom_pki_dir.stat.exists

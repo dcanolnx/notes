@@ -1,0 +1,24 @@
+---
+# defaults file for sysadmin-users
+sysadmins:
+    - pmadrid
+    - abandin
+    - mlorenzo
+    - ldiaz
+    - javierruiz
+    - adelgado
+    - agorines
+    - shamoud
+    - dcano
+    - acascajero
+    - hbermudez
+    - larguello
+    - mjimenez
+    - aprada
+    - jhuertas
+    - jortega
+    - econde
+    - antoniogomez  
+sysadmins_group: sysadmin
+external: false
+default_password: "$1$SomeSalt$l.aVzuVlAKMzQumBgv/2H."

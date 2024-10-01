@@ -1,0 +1,5 @@
+- name: Create Kerberos client k8s ConfigMap
+  template:
+    src: "k8s-configmap.yml.j2"
+    dest: "{{ dest }}"
+  delegate_to: localhost

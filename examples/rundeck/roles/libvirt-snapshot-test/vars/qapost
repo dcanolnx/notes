@@ -1,0 +1,86 @@
+---
+range_new_cluster: "10.130.2.0"
+
+# RESTORE / SAVE / REINSTALL
+save: false
+restore: true
+reinstall: false
+
+# SKIP RESTONE VIRTUAL MACHINES
+skip_restore: 
+  - nfs
+  - bootstrap
+  - ldapkerberos
+snapshot_name: snapshot
+reboot_at_snapshot: false
+## Here you must specify where run every VM. The list name must be the same at hosts file
+nodes:
+  hetzner13:
+    bootstrap:
+      memory: 4194304 # KiB # 4 GiB
+      cpu: 1 # Cores
+      disk: 102400 # MiB     # 100 GiB
+      ip: "{{ range_new_cluster[:-1] }}2"
+    ldapkerberos:
+      memory: 2097152 # KiB # 2 GiB
+      cpu: 1 # Cores
+      disk: 8192 # MiB      # 8 GiB
+      ip: "{{ range_new_cluster[:-1] }}6"
+    master01:
+      memory: 8388608 # KiB # 8 GiB
+      cpu: 4 # Cores
+      disk: 51200 # MiB     # 50 GiB
+      ip: "{{ range_new_cluster[:-1] }}11"
+    master02:
+      memory: 8388608 # KiB # 8 GiB
+      cpu: 4 # Cores
+      disk: 51200 # MiB     # 50 GiB
+      ip: "{{ range_new_cluster[:-1] }}12"
+    master03:
+      memory: 8388608 # KiB # 8 GiB
+      cpu: 4 # Cores
+      disk: 51200 # MiB     # 50 GiB
+      ip: "{{ range_new_cluster[:-1] }}13"
+    public-agent01:
+      memory: 8388608 # KiB # 8 GiB
+      cpu: 4 # Cores
+      disk: 51200 # MiB     # 50 GiB
+      ip: "{{ range_new_cluster[:-1] }}21"
+    gosec1:
+      memory: 8388608 # KiB # 8 GiB
+      cpu: 2 # Cores
+      disk: 61440 # MiB     # 60 GiB
+      ip: "{{ range_new_cluster[:-1] }}31"
+    gosec2:
+      memory: 8388608 # KiB # 8 GiB
+      cpu: 2 # Cores
+      disk: 61440 # MiB     # 60 GiB
+      ip: "{{ range_new_cluster[:-1] }}32"
+    gosec3:
+      memory: 8388608 # KiB # 8 GiB
+      cpu: 2 # Cores
+      disk: 61440 # MiB     # 60 GiB
+      ip: "{{ range_new_cluster[:-1] }}33"
+    private-agent01:
+      ip: "{{ range_new_cluster[:-1] }}101"
+  hetzner14:
+    private-agent02:
+      ip: "{{ range_new_cluster[:-1] }}102"
+    private-agent03:
+      ip: "{{ range_new_cluster[:-1] }}103"
+    private-agent04:
+      ip: "{{ range_new_cluster[:-1] }}104"
+  hetzner15:
+    private-agent05:
+      ip: "{{ range_new_cluster[:-1] }}105"
+    private-agent06:
+      ip: "{{ range_new_cluster[:-1] }}106"
+    private-agent07:
+      ip: "{{ range_new_cluster[:-1] }}107"
+
+## Generic VMs config
+generic:
+  memory: 31457280 # KiB # 30 GiB
+  cpu: 14  # Cores
+  disk: 256000 # MiB     # 250 GiB
+  disk_path_generic: /var/lib/libvirt/images    # Without final / 

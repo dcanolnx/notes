@@ -1,0 +1,17 @@
+[libdefaults]
+ default_realm = {{realm_name|upper}}
+ dns_lookup_realm = false
+ dns_lookup_kdc = false
+ rdns = false
+ ticket_lifetime = 24h
+ renew_lifetime = 7d
+ forwardable = true
+ proxiable = true
+ default_ccache_name = FILE:/tmp/krb5cc_%{uid}
+ udp_preference_limit = 1
+
+[realms]
+ {{realm_name|upper}} = {
+  kdc = {{kerberos_fqdn}}
+  admin_server = {{kerberos_fqdn}}
+ }

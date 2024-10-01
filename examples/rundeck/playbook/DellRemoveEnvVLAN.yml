@@ -1,0 +1,66 @@
+---
+- hosts: cpd_tor
+  become: true
+  become_method: enable
+  vars:
+    env_vlan:
+
+  tasks:
+  - name: Config switches rack 9
+    dellos9_config:
+      lines:
+        - no interface Vlan {{ env_vlan }}
+      match: exact
+      save: true
+    when: "ansible_network_os == 'dellos9' and ('r9-sw1' in inventory_hostname or 'r9-sw2' in inventory_hostname)"
+
+  - name: Config switches rack 5 - Switch 2
+    dellos6_config:
+      lines:
+        - interface range tengigabitethernet 1/0/1-24
+        - switchport trunk allowed vlan remove {{ env_vlan }}
+      match: exact
+      save: no
+    when: "ansible_network_os == 'dellos6' and 'r5-sw2' in inventory_hostname and 'r5-sw3' in inventory_hostname"
+
+  - name: Config switches rack 5 - Switch 3
+    dellos6_config:
+      lines:
+        - interface range tengigabitethernet 2/0/1-24
+        - switchport trunk allowed vlan remove {{ env_vlan }}
+      match: exact
+      save: no
+    when: "ansible_network_os == 'dellos6' and 'r5-sw2' in inventory_hostname and 'r5-sw3' in inventory_hostname"
+
+  - name: Config switches rack 5 - Port Channel
+    dellos6_config:
+      lines:
+        - interface port-channel 49
+        - switchport trunk allowed vlan remove {{ env_vlan }}
+      match: exact
+      save: no
+    when: "ansible_network_os == 'dellos6' and 'r5-sw2' in inventory_hostname and 'r5-sw3' in inventory_hostname"
+
+  - name: Config switches rack 5 - Vlan
+    dellos6_config:
+      lines:
+        - no vlan {{ env_vlan }}
+      match: exact
+      save: yes
+    when: "ansible_network_os == 'dellos6' and 'r5-sw2' in inventory_hostname and 'r5-sw3' in inventory_hostname"
+
+  - name: Config switches rack 4
+    dellos9_config:
+      lines:
+        - no interface Vlan {{ env_vlan }}
+      match: exact
+      save: yes
+    when: "ansible_network_os == 'dellos9' and ('r4-sw2' in inventory_hostname or 'r4-sw3' in inventory_hostname)"
+  
+  - name: Config switches rack 7
+    dellos9_config:
+      lines:
+        - no interface Vlan {{ env_vlan }}
+      match: exact
+      save: yes
+    when: "ansible_network_os == 'dellos9' and ('r7-sw2' in inventory_hostname or 'r7-sw3' in inventory_hostname)"

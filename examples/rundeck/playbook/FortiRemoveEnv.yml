@@ -1,0 +1,38 @@
+---
+- hosts: orgon
+  gather_facts: False
+  vars:
+    env_vlan:   
+    env_name:   
+    env_range:  
+
+  tasks:
+  - name: Get Firewall Rules
+    raw: |
+      config firewall policy
+        show
+      end
+    when: "'orgon' in inventory_hostname"
+    register: firewall_rules
+
+  - name: Delete Firewall Rules
+    raw: |
+      config firewall policy
+        delete {{ item | regex_search('edit\ ([0-9]+)') | regex_search('[0-9]+') }}
+      end
+    when: '"orgon" in inventory_hostname and "Net_Labs_{{ env_name }}_{{ env_range }}" in item'
+    with_items: "{{ firewall_rules.stdout.split('next') }}"
+
+  - name: Delete Firewall Address
+    raw: |
+      config firewall address
+        delete Net_Labs_{{ env_name }}_{{ env_range }}
+      end
+    when: "'orgon' in inventory_hostname"
+
+  - name: Delete VLAN Interface
+    raw: |
+      config system interface
+        delete Labs_{{ env_vlan }}
+      end
+    when: "'orgon' in inventory_hostname"

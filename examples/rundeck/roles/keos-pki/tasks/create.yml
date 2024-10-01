@@ -1,0 +1,47 @@
+---
+- name: Copy CA Config File to Server
+  template:
+    src: "ca.info.j2"
+    dest: "{{ pki_ca_info_path }}"
+
+- name: Create CA key
+  openssl_privatekey:
+    path: "{{ pki_ca_root_key_path }}"
+    passphrase: "{{ pki_password }}"
+    cipher: auto
+
+- name: Create CA csr
+  openssl_csr:
+    path: "{{ pki_ca_root_csr_path }}"
+    privatekey_path: "{{ pki_ca_root_key_path }}"
+    privatekey_passphrase: "{{ pki_password }}"
+    common_name: "{{ common_name }}"
+    use_common_name_for_san: no
+    key_usage_critical: yes
+    key_usage:
+      - keyCertSign
+      - cRLSign
+    basic_constraints_critical: yes
+    basic_constraints:
+      - CA:TRUE
+
+- name: Create CA certificate
+  openssl_certificate:
+    path: "{{ pki_ca_root_path }}"
+    privatekey_path: "{{ pki_ca_root_key_path }}"
+    privatekey_passphrase: "{{ pki_password }}"
+    csr_path: "{{ pki_ca_root_csr_path }}"
+    selfsigned_not_after: +3650d
+    provider: selfsigned
+
+- name: Create CA Bundle
+  copy:
+    src: "{{ pki_ca_root_path }}"
+    dest: "{{ pki_ca_root_bundle_path }}"
+    remote_src: yes
+
+- name: Create CA password file
+  copy:
+    content: "{{ pki_password }}"
+    dest: "{{ pki_ca_root_password_path }}"
+  no_log: yes

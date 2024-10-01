@@ -1,0 +1,30 @@
+---
+# tasks file for ntp
+
+- name: Install NTP
+  package:
+    name: ntp
+    state: present
+
+- name: Generate NTP client configuration
+  template:
+    src: ntp.conf.j2
+    dest: /etc/ntp.conf
+    owner: root
+    group: root
+    mode: 0644
+
+- name: Configure UTC timezone
+  file:
+    src: "/usr/share/zoneinfo/{{timezone}}"
+    dest: /etc/localtime
+    state: link
+    force: yes
+    owner: root
+    group: root
+
+- name: Start & enable NTP service
+  service:
+    name: ntpd
+    state: restarted
+    enabled: yes

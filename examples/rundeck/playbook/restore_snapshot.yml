@@ -1,0 +1,9 @@
+---
+- hosts: all
+  gather_facts: true
+  become: true
+  vars:
+    wait_time: 
+  roles:
+   - { role: libvirt-snapshot, when: "'hetzner' in inventory_hostname" }
+

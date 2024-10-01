@@ -1,0 +1,21 @@
+[Unit]
+Description=Kerberos 5 Password-changing and Administration
+Wants=network-online.target
+After=syslog.target network.target network-online.target
+{%- if ansible_facts.services['slapd.service'] is defined and ansible_facts.services['slapd.service'].status == "enabled" %} slapd.service
+Wants=slapd.service
+{% endif %}
+
+[Service]
+Type=forking
+PIDFile=/var/run/kadmind.pid
+EnvironmentFile=-/etc/sysconfig/kadmin
+ExecStartPre=/usr/bin/timeout {{ ldap_access_timeout }} {{ kerberos_scripts_folder }}/check_remote_ldap.sh
+ExecStart=/usr/sbin/_kadmind -P /var/run/kadmind.pid $KADMIND_ARGS
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+StartLimitInterval=120s
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

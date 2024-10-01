@@ -1,0 +1,84 @@
+---
+# defaults file for hdfs
+
+# MISC VARIABLES
+files_path: "{{role_path}}/files"
+pki_path: "{{ playbook_dir }}/pki"
+pki_gencert_path: "{{ pki_path }}/.gencert"
+
+# HOSTS VARIABLES
+interface: eth0
+ansible_interface: "ansible_{{interface}}"
+
+# HADOOP SW VARIABLES
+hadoop_version: 2.7.2
+hadoop_file: "hadoop-{{hadoop_version}}.tar.gz"
+hadoop_download_url: "https://archive.apache.org/dist/hadoop/common/hadoop-{{hadoop_version}}/hadoop-{{hadoop_version}}.tar.gz"
+
+# HADOOP PATHS
+stratio_dir: /opt/stratio
+hadoop_home: "{{stratio_dir}}/hadoop"
+hadoop_bin_dir: "{{hadoop_home}}/bin"
+hadoop_sbin_dir: "{{hadoop_home}}/sbin"
+hadoop_conf_dir: "{{hadoop_home}}/conf"
+hadoop_pid_dir: "{{hadoop_home}}/pids"
+hadoop_log_dir: "{{hadoop_home}}/logs"
+hadoop_secrets_dir: "{{hadoop_conf_dir}}/secrets"
+hdfs_data_dir: /var/hdfs_data
+purge_hdfs_data: no
+dfs_tmp_dir: "{{hdfs_data_dir}}/tmp"
+dfs_namenode_name_dir: "{{hdfs_data_dir}}/namenode"
+dfs_datanode_data_dir: "{{hdfs_data_dir}}/datanode"
+dfs_journalnode_journal_dir: "{{hdfs_data_dir}}/journalnode"
+reboot_services: yes
+
+# HADOOP OWNER
+hadoop_user: hdfs
+hadoop_user_home: "/home/{{hadoop_user}}"
+hadoop_group: "{{hadoop_user}}"
+
+# HADOOP CONFIGURATION
+http_cookie_domain: labs.stratio.com
+hadoop_keystore_file: "{{ansible_fqdn}}.keystore"
+truststore_file: stratio.truststore
+http_signature_secret_file: http.signature
+stores_password: dqd231123sdaedq313d123d312
+ssl_client_truststore_reload_interval: 10000
+ssl_server_truststore_reload_interval: 10000
+hdfs_cluster_name: stratio
+hdfs_ha: true
+dfs_default_max_replication: 3
+dfs_permissions: true
+securized: true
+dfs_encrypt_data_transfer: "{{securized}}"
+dfs_encrypt_data_transfer_suites: "AES/CTR/NoPadding"
+dfs_encrypt_data_transfer_algorithm: "3des"
+dfs_encrypt_data_transfer_key_bitlength: 128
+data_transfer_protection: authentication
+use_nfs: no
+#hadoop_security_authentication: simple
+hadoop_security_authentication: kerberos
+#httpfs_authentication_type: simple
+httpfs_authentication_type: kerberos
+#httpfs_hadoop_authentication_type: simple
+httpfs_hadoop_authentication_type: kerberos
+listening_address: 0.0.0.0
+hdfs_journal_port: 8485
+https_port: 50070
+https_securized_port: 50470
+namenode_listening_port: 8020
+dfs_datanode_port: 10004
+https_datanode_port: 10006
+zookeeper_clientport: 2181
+
+# HADOOP HDFS FOLDERS
+hdfs_users_folder_user: stratio
+hdfs_users_folder_group: stratio
+hadoop_hdfs_folders:
+    - { path: "/user", owner: "{{ hdfs_users_folder_user }}:{{ hdfs_users_folder_group }}", perms: "g+w" }
+    - { path: "/data", owner: "hdfs:supergroup", perms: "g+w,o+wt" }
+    - { path: "/tmp", owner: "hdfs:supergroup", perms: "g+w,o+wt" }
+
+# KERBEROS CONFIGURATION
+kerberos_realm: PERFORMANCE.STRATIO.COM
+kerberos_fqdn: kerbldap.labs.stratio.com

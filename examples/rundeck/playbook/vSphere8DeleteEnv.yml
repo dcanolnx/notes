@@ -1,0 +1,64 @@
+---
+- hosts: localhost
+  vars:
+    vcenter_hostname: "vcenter.int.stratio.com"
+    vcenter_username: "administrator@vsphere.local"
+    vcenter_password: 
+    datacenter:       "Stratio.com"
+    env_name:         
+    parent_folder:    "Pool"
+    pause_seconds:    60
+    hdfs: false
+    kerberos: false
+  tasks:
+    - name: Get vms from /{{ datacenter }}/vm/{{ parent_folder }}/{{ env_name }}
+      vmware_vm_info:
+        hostname:         "{{ vcenter_hostname }}"
+        username:         "{{ vcenter_username }}"
+        password:         "{{ vcenter_password }}"
+        folder:           "/{{ datacenter }}/vm/{{ parent_folder }}/{{ env_name }}"
+        validate_certs:   no
+      delegate_to: localhost
+      register: vcenter_folder_info
+
+    - name: Power off all Env Machines
+      vmware_guest:
+        hostname:         "{{ vcenter_hostname }}"
+        username:         "{{ vcenter_username }}"
+        password:         "{{ vcenter_password }}"
+        validate_certs:   no
+        uuid:             "{{ item.uuid }}"
+        state:            poweredoff
+      when: "('-hdfs' in item.guest_name and hdfs == true) or ('-kerberos' in item.guest_name and kerberos == true) or ('-kerberos' not in item.guest_name and '-hdfs' not in item.guest_name)"
+      delegate_to: localhost
+      with_items: "{{ vcenter_folder_info.virtual_machines }}"
+
+    - name: Stop {{ pause_seconds }} seconds until the stop of VMs
+      pause:
+        seconds: "{{ pause_seconds }}"
+
+    - name: Remove all Env Machines 
+      vmware_guest:
+        hostname:         "{{ vcenter_hostname }}"
+        username:         "{{ vcenter_username }}"
+        password:         "{{ vcenter_password }}"
+        validate_certs:   no
+        uuid:             "{{ item.uuid }}"
+        state:            absent
+      when: "('-hdfs' in item.guest_name and hdfs == true) or ('-kerberos' in item.guest_name and kerberos == true) or ('-kerberos' not in item.guest_name and '-hdfs' not in item.guest_name)"
+      delegate_to: localhost
+      with_items: "{{ vcenter_folder_info.virtual_machines }}"
+
+    - name: Delete {{ env_name }} folder 
+      vcenter_folder:
+        hostname:         "{{ vcenter_hostname }}"
+        username:         "{{ vcenter_username }}"
+        password:         "{{ vcenter_password }}"
+        datacenter_name:  "{{ datacenter }}"
+        validate_certs:   no
+        parent_folder:    "{{ parent_folder }}"
+        folder_name:      "{{ env_name }}"
+        folder_type:      vm
+        state:            absent
+      when: "hdfs == true and kerberos == true"
+      delegate_to: localhost

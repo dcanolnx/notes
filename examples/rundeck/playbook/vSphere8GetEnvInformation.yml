@@ -1,0 +1,80 @@
+---
+- hosts: localhost
+  vars:
+    vcenter_hostname: "vcenter.int.stratio.com"
+    vcenter_username: "administrator@vsphere.local"
+    vcenter_password: 
+    datacenter:       "Stratio.com"
+    env_name:         
+    parent_folder:    "Pool"
+    pause_seconds:    60
+  collections: 
+    - community.vmware
+  tasks:
+    - name: Check file  /tmp/{{env_name}}_info.yaml exists and is not older than 1 day
+      stat:
+        path: /tmp/{{env_name}}_info.yaml
+      register: file_stat
+      ignore_errors: yes  # Ignore errors if the file does not exist
+
+    - name: Determine current time minus 1 day in seconds
+      set_fact:
+        one_day_ago: "{{ (ansible_date_time.epoch | int) - 86400 }}"  # 86400 seconds in a day
+    
+    - name: Determine current time minus 1 day in seconds
+      set_fact:
+        file_time: "{{ (file_stat.stat.mtime | int) }}"  # 86400 seconds in a day
+      when: file_stat.stat.exists 
+
+    - name: Check if the file exists and is not older than 1 day
+      set_fact:
+        validFile: "{{ file_stat.stat.exists and file_time >= one_day_ago }}"  
+  
+    - name: Execute the definitive task
+      debug:
+        msg: "/tmp/{{env_name}}_info.yaml exists and is recent, so is not neccesary recreate it"
+      when: validFile
+
+    - name: Skip the definitive task
+      debug:
+        msg: "/tmp/{{env_name}}_info.yaml  file does not exists or is older than 1 day "
+      when: not validFile
+
+    - name: Get vms from /{{ datacenter }}/vm/{{ parent_folder }}/{{ env_name }}
+      community.vmware.vmware_vm_info:
+        hostname:         "{{ vcenter_hostname }}"
+        username:         "{{ vcenter_username }}"
+        password:         "{{ vcenter_password }}"
+        folder:           "/{{ datacenter }}/vm/{{ parent_folder }}/{{ env_name }}"
+        validate_certs:   no
+        show_allocated: true
+      delegate_to: localhost
+      register: vm_info
+      when: not validFile
+
+    #- debug:
+    #    var: vm_info.virtual_machines
+    #  when: not validFile
+
+      #- name: Power on all Env Machines 
+      #vmware_guest:
+      #  hostname:         "{{ vcenter_hostname }}"
+      #  username:         "{{ vcenter_username }}"
+      #  password:         "{{ vcenter_password }}"
+      #  validate_certs:   no
+      #  uuid:             "{{ item.uuid }}"
+      #  state:            poweredon
+      #delegate_to: localhost
+      #with_items: "{{ vm_info.virtual_machines }}"
+      #when: not validFile
+
+    - name: Stop {{ pause_seconds }} seconds until the start of VMs
+      pause:
+        seconds: "{{ pause_seconds }}"
+      when: not validFile
+ 
+    - name: Save YAML on /tmp/{{env_name}}_info.yaml
+      ansible.builtin.copy:
+        content: "{{ vm_info }}"
+        dest: /tmp/{{env_name}}_info.yaml
+      when: not validFile

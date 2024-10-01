@@ -1,0 +1,7 @@
+- name: "Copy ntp.conf"
+  template: src=ntp.conf dest=/etc/ntp.conf
+
+
+
+
+

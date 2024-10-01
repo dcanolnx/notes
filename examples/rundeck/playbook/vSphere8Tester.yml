@@ -1,0 +1,108 @@
+---
+- name: Tester
+  hosts: localhost
+  become: false
+  gather_facts: false
+  collections: 
+    - comunity.vmware
+  pre_tasks:
+    - include_vars: ~/github/sistemas-rundeck/ansible/group_vars/vSphere8_tester.yml
+  tasks:
+    - name: Power on all Env Machines 
+      vmware_guest:
+        hostname:         "{{ vcenter_hostname }}"
+        username:         "{{ vcenter_username }}"
+        password:         "{{ vcenter_password }}"
+        validate_certs:   no
+        uuid:             "{{ item.uuid }}"
+        state:            poweredon
+      delegate_to: localhost
+      with_items: "{{ vcenter_folder_info.virtual_machines }}"
+
+    - name: Stop {{ pause_seconds }} seconds until the start of VMs
+      pause:
+        seconds: "{{ pause_seconds }}"
+        
+    - name: Get Tags from VM`s 
+      block:
+        - name: Get virtual machine info
+          community.vmware.vmware_vm_info:
+            hostname: '{{ vcenter_hostname }}'
+            username: '{{ vcenter_username }}'
+            password: '{{ vcenter_password }}'
+            folder:   "/{{ vcenter_datacenter }}/vm/{{ parent_folder }}/{{ env_name }}"
+          delegate_to: localhost
+          register: vm_info
+
+        - name: Create Nodes from template
+          vmware_guest:
+            hostname:       "{{ vcenter_hostname }}"
+            username:       "{{ vcenter_username }}"
+            password:       "{{ vcenter_password }}"
+            datacenter:     "{{ datacenter }}"
+            validate_certs: no
+            cluster:        "{{ cluster }}"
+            folder:         "/{{ parent_folder }}/{{ env_name }}"
+            name:           "{{ env_name }}-node{{ item }}"
+            state:          present
+            template:       "template-{{template}}-node_k8s"
+            datastore:      "vvol_labs"
+            networks:
+            - name:         "Labs_{{ env_name }}"
+              start_connected: yes
+              ip:           "{{ item.virtual_machines.ip_address}}"
+              connected: yes
+            hardware:
+              memory_mb:    vm_info.virtual_machines.instance.hw_cores_per_socket
+              num_cpus:     vm_info.virtual_machines.instance.hw_cores_per_socket
+          delegate_to:      localhost
+          with_items:       "{{ vm_info }}"
+            
+
+       # aquí es donde estaba haciendo las pruebas para ver si realmente saca la información que quiero para la cpu, mem, ip y tal...
+        #- name: print VM`s guest_name
+        #  ansible.builtin.debug:
+        #    var: vm_info.virtual_machines[0].guest_name
+
+        #- name: Print vm info
+        #  debug: 
+        #    msg: "'{{ item.virtual_machines.guest_name}}' & '{{ item.virtual_machines.ip_address}}' & '{{ item.virtual_machines.instance.hw_cores_per_socket }}'"
+        #  delegate_to: localhost
+        #  with_items: "{{ vm_info }}"
+##
+        - name: print VM`s ip_address
+          ansible.builtin.debug:
+            var: vm_info.virtual_machines[0].ip_address
+
+        #- name: print VM info ip
+        #  ansible.builtin.debug:
+        #    var: vm_info.instance.ipv4
+
+        - name: print VM info processor
+          ansible.builtin.debug:
+            var: vm_info.virtual_machines.instance.hw_cores_per_socket
+
+        - name: print VM info memory
+          ansible.builtin.debug:
+            var: vm_info.instance.hw_memtotal_mb
+
+        - name: print VM info hw name
+          ansible.builtin.debug:
+            var: vm_info.instance.hw_name
+
+        - name: Get vms from /{{ vcenter_datacenter }}/vm/{{ parent_folder }}/{{ env_name }}
+          vmware_vm_info:
+            hostname:         "{{ vcenter_hostname }}"
+            username:         "{{ vcenter_username }}"
+            password:         "{{ vcenter_password }}"
+            folder:           "/{{ vcenter_datacenter }}/vm/{{ parent_folder }}/{{ env_name }}"
+            validate_certs:   no
+          delegate_to: localhost
+          register: vcenter_folder_info
+
+        - name: Print vm info
+          debug: 
+            msg: "'{{ item.guest_name}}' & '{{ item.ip_address}}'"
+          delegate_to: localhost
+          with_items: "{{ vcenter_folder_info.virtual_machines }}"
+

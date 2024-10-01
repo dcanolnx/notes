@@ -1,0 +1,11 @@
+# Configuración portgroups esxi
+- hosts: all
+  become: true
+  vars:
+    VLAN_name:
+    vSwitch: vSwitch0
+    VLAN_number:
+
+  tasks:
+    - name: Delete VLAN
+      shell: esxcli network vswitch standard portgroup remove -p '{{ VLAN_name }}' -v '{{ vSwitch }}'  

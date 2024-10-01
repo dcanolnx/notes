@@ -1,0 +1,369 @@
+### ############################ ###
+###    MACHINES MANTEINED BY II  ###
+### ############################ ###
+[CICD]
+nexus                   ansible_host=qa.int.stratio.com
+offlineuniversetemporal	ansible_host=offlineuniversetemporal.int.stratio.com
+
+[KEOS_CICD]
+kubepxe                 ansible_host=kubepxe.int.stratio.com
+kubeboot                ansible_host=kubeboot.int.stratio.com
+kubem1                  ansible_host=kubem1.int.stratio.com
+kubem2                  ansible_host=kubem2.int.stratio.com
+kubem3                  ansible_host=kubem3.int.stratio.com
+kubew2                  ansible_host=kubew2.int.stratio.com
+kubew3                  ansible_host=kubew3.int.stratio.com
+kubew4                  ansible_host=kubew4.int.stratio.com
+kubew5                  ansible_host=kubew5.int.stratio.com
+kubew8                  ansible_host=kubew8.int.stratio.com
+kubecancer              ansible_host=kubecancer.int.stratio.com
+kubegeminis             ansible_host=kubegeminis.int.stratio.com
+
+[CICD_PRE]
+jenkinspre              ansible_host=jenkinspre.labs.stratio.com
+
+[KEOS_CICD_PRE]
+kubem1-dev                 ansible_host=kubem1-dev.labs.stratio.com
+kubem2-dev                 ansible_host=kubem2-dev.labs.stratio.com
+kubem3-dev                 ansible_host=kubem3-dev.labs.stratio.com
+kubew1-dev                 ansible_host=kubew1-dev.labs.stratio.com
+kubew2-dev                 ansible_host=kubew2-dev.labs.stratio.com
+kubew3-dev                 ansible_host=kubew3-dev.labs.stratio.com
+
+[PRODUCTION_CPD]            # Linux Production Machines
+aluminio                ansible_host=aluminio.int.stratio.com           
+arsenico                ansible_host=arsenico.int.stratio.com           
+berilio                 ansible_host=berilio.int.stratio.com                         
+carbono                 ansible_host=carbono.int.stratio.com                         
+erbio                   ansible_host=erbio.int.stratio.com              
+galio                   ansible_host=galio.int.stratio.com              
+helio                   ansible_host=helio.int.stratio.com                                                       
+litio                   ansible_host=litio.int.stratio.com              
+molibdeno               ansible_host=molibdeno.int.stratio.com               
+niobio                  ansible_host=niobio.int.stratio.com             
+oro                     ansible_host=oro.int.stratio.com            
+potasio                 ansible_host=potasio.int.stratio.com                       
+rundeck                 ansible_host=rundeck.int.stratio.com        
+xenon                   ansible_host=xenon.int.stratio.com          
+
+[LABS]
+fullepxe                ansible_host=fullepxe.labs.stratio.com          
+blog-labs               ansible_host=blog.labs.stratio.com      
+ldappre                 ansible_host=ldappre.labs.stratio.com        
+
+[PRODUCTION_AWS_PUBLIC]
+#downloads1-aws          ansible_host=downloads1-aws.int.stratio.com
+#downloads2-aws          ansible_host=downloads2-aws.int.stratio.com
+docs1-aws                ansible_host=docs1-aws.int.stratio.com
+docs2-aws                ansible_host=docs2-aws.int.stratio.com
+av-aws                  ansible_host=av-aws.int.stratio.com             
+repo-aws                ansible_host=repo-aws.int.stratio.com           
+wazuh-aws               ansible_host=wazuh-aws.int.stratio.com    
+zerotier-aws            ansible_host=zerotier-aws.int.stratio.com
+ai-aws                  ansible_host=ai-aws.int.stratio.com             
+
+[PRODUCTION_AWS_PRIVATE]
+ldap-aws                ansible_host=ldap-aws.int.stratio.com
+blog-aws                ansible_host=10.120.200.193
+docsnfs-aws                ansible_host=docsnfs-aws.int.stratio.com
+
+[PRODUCTION_AWS:children]
+PRODUCTION_AWS_PUBLIC
+PRODUCTION_AWS_PRIVATE
+
+[PRODUCTION:children]       # This group include all production machines
+PRODUCTION_AWS
+PRODUCTION_CPD
+KEOS_CICD
+CICD
+
+[PREPRODUCTION:children]    # This group include all preproduction machines
+LABS
+CICD_PRE
+KEOS_CICD_PRE
+
+[MOODLE]
+moodle1                ansible_host=moodle1.int.stratio.com
+moodle2                ansible_host=moodle2.int.stratio.com
+moodlenfs              ansible_host=10.150.100.5
+
+### ############################ ###
+### END MACHINES MANTEINED BY II ###
+### ############################ ###
+
+### ############################ ###
+###     OTHER MACHINES           ###
+### ############################ ###
+[PIT]
+PIT-Cosmos              ansible_host=10.200.0.194
+PIT-pre                 ansible_host=10.200.0.191
+PIT-services            ansible_host=10.200.0.192
+PIT-Web_Doc_pre         ansible_host=10.200.0.193
+
+### ############################ ###
+###   END  OTHER MACHINES        ###
+### ############################ ###
+
+
+### ############################ ###
+###               ESXs           ###
+### ############################ ###
+[ESXi_ClusterA]
+esx01a.int.stratio.com      ansible_ssh_user=root
+esx02a.int.stratio.com      ansible_ssh_user=root
+esx03a.int.stratio.com      ansible_ssh_user=root
+esx04a.int.stratio.com      ansible_ssh_user=root
+esx05a.int.stratio.com      ansible_ssh_user=root
+esx06a.int.stratio.com      ansible_ssh_user=root
+esx07a.int.stratio.com      ansible_ssh_user=root
+esx08a.int.stratio.com      ansible_ssh_user=root
+esx09a.int.stratio.com      ansible_ssh_user=root
+esx10a.int.stratio.com      ansible_ssh_user=root
+esx11a.int.stratio.com      ansible_ssh_user=root
+esx12a.int.stratio.com      ansible_ssh_user=root
+esx13a.int.stratio.com      ansible_ssh_user=root
+esx14a.int.stratio.com      ansible_ssh_user=root
+esx15a.int.stratio.com      ansible_ssh_user=root
+esx16a.int.stratio.com      ansible_ssh_user=root
+esx17a.int.stratio.com      ansible_ssh_user=root
+esx18a.int.stratio.com      ansible_ssh_user=root
+esx19a.int.stratio.com      ansible_ssh_user=root
+esx21a.int.stratio.com      ansible_ssh_user=root
+esx22a.int.stratio.com      ansible_ssh_user=root
+esx23a.int.stratio.com      ansible_ssh_user=root
+esx24a.int.stratio.com      ansible_ssh_user=root
+esx25a.int.stratio.com      ansible_ssh_user=root
+esx26a.int.stratio.com      ansible_ssh_user=root
+esx27a.int.stratio.com      ansible_ssh_user=root
+esx28a.int.stratio.com      ansible_ssh_user=root
+esx29a.int.stratio.com      ansible_ssh_user=root
+esx30a.int.stratio.com      ansible_ssh_user=root
+esx31a.int.stratio.com      ansible_ssh_user=root
+esx32a.int.stratio.com      ansible_ssh_user=root
+esx33a.int.stratio.com      ansible_ssh_user=root
+esx34a.int.stratio.com      ansible_ssh_user=root
+esx35a.int.stratio.com      ansible_ssh_user=root
+esx36a.int.stratio.com      ansible_ssh_user=root
+esx37a.int.stratio.com      ansible_ssh_user=root
+esx38a.int.stratio.com      ansible_ssh_user=root
+esx39a.int.stratio.com      ansible_ssh_user=root
+esx40a.int.stratio.com      ansible_ssh_user=root
+esx41a.int.stratio.com      ansible_ssh_user=root
+esx42a.int.stratio.com      ansible_ssh_user=root
+esx43a.int.stratio.com      ansible_ssh_user=root
+esx44a.int.stratio.com      ansible_ssh_user=root
+esx45a.int.stratio.com      ansible_ssh_user=root
+esx46a.int.stratio.com      ansible_ssh_user=root
+esx47a.int.stratio.com      ansible_ssh_user=root
+esx48a.int.stratio.com      ansible_ssh_user=root
+esx49a.int.stratio.com      ansible_ssh_user=root
+
+
+[ESXi_ClusterB]
+esx01b.int.stratio.com      ansible_ssh_user=root
+esx02b.int.stratio.com      ansible_ssh_user=root
+esx20b.int.stratio.com      ansible_ssh_user=root
+esx10b.int.stratio.com      ansible_ssh_user=root
+esx11b.int.stratio.com      ansible_ssh_user=root
+esx12b.int.stratio.com      ansible_ssh_user=root
+esx50b.int.stratio.com      ansible_ssh_user=root
+
+
+[ESXi_ClusterC]
+esx01c.int.stratio.com      ansible_ssh_user=root
+esx02c.int.stratio.com      ansible_ssh_user=root
+esx03c.int.stratio.com      ansible_ssh_user=root
+esx04c.int.stratio.com      ansible_ssh_user=root
+esx06c.int.stratio.com      ansible_ssh_user=root
+esx07c.int.stratio.com      ansible_ssh_user=root
+esx08c.int.stratio.com      ansible_ssh_user=root
+
+[ESXi_newvcenter]
+esx09a.int.stratio.com      ansible_ssh_user=root
+esx47a.int.stratio.com      ansible_ssh_user=root
+esx48a.int.stratio.com      ansible_ssh_user=root
+esx49a.int.stratio.com      ansible_ssh_user=root
+
+[ESXs:children]       # This group include all ESXs
+ESXi_newvcenter
+ESXi_ClusterC
+ESXi_ClusterB
+ESXi_ClusterA
+
+
+[rc_hp_ilo]
+esx01am                 ansible_host=esx01am.int.stratio.com
+esx02am                 ansible_host=esx02am.int.stratio.com
+esx03am                 ansible_host=esx03am.int.stratio.com
+esx04am                 ansible_host=esx04am.int.stratio.com
+esx05am                 ansible_host=esx05am.int.stratio.com
+esx06am                 ansible_host=esx06am.int.stratio.com
+esx07am                 ansible_host=esx07am.int.stratio.com
+esx08am                 ansible_host=esx08am.int.stratio.com
+esx09am                 ansible_host=esx09am.int.stratio.com
+esx10am                 ansible_host=esx10am.int.stratio.com
+esx11am                 ansible_host=esx11am.int.stratio.com
+esx12am                 ansible_host=esx12am.int.stratio.com
+esx13am                 ansible_host=esx13am.int.stratio.com
+esx14am                 ansible_host=esx14am.int.stratio.com
+esx15am                 ansible_host=esx15am.int.stratio.com
+esx16am                 ansible_host=esx16am.int.stratio.com
+esx17am                 ansible_host=esx17am.int.stratio.com
+esx18am                 ansible_host=esx18am.int.stratio.com
+esx19am                 ansible_host=esx19am.int.stratio.com
+esx20bm                 ansible_host=esx20bm.int.stratio.com
+esx21am                 ansible_host=esx21am.int.stratio.com
+esx22am                 ansible_host=esx22am.int.stratio.com
+esx23am                 ansible_host=esx23am.int.stratio.com
+esx24am                 ansible_host=esx24am.int.stratio.com
+esx25am                 ansible_host=esx25am.int.stratio.com
+esx26am                 ansible_host=esx26am.int.stratio.com
+esx27am                 ansible_host=esx27am.int.stratio.com
+esx28am                 ansible_host=esx28am.int.stratio.com
+
+[rc_dell_idrac]
+esx29am                 ansible_host=esx29am.int.stratio.com
+esx30am                 ansible_host=esx30am.int.stratio.com
+esx31am                 ansible_host=esx31am.int.stratio.com
+esx32am                 ansible_host=esx32am.int.stratio.com
+esx33am                 ansible_host=esx33am.int.stratio.com
+esx34am                 ansible_host=esx34am.int.stratio.com
+esx35am                 ansible_host=esx35am.int.stratio.com
+esx36am                 ansible_host=esx36am.int.stratio.com
+esx37am                 ansible_host=esx37am.int.stratio.com
+esx38am                 ansible_host=esx38am.int.stratio.com
+esx39am                 ansible_host=esx39am.int.stratio.com
+esx40am                 ansible_host=esx40am.int.stratio.com
+esx41am                 ansible_host=esx41am.int.stratio.com
+esx42am                 ansible_host=esx42am.int.stratio.com
+esx43am                 ansible_host=esx43am.int.stratio.com
+esx44am                 ansible_host=esx44am.int.stratio.com
+esx45am                 ansible_host=esx45am.int.stratio.com
+esx46am                 ansible_host=esx46am.int.stratio.com
+esx47am                 ansible_host=esx47am.int.stratio.com
+esx48am                 ansible_host=esx48am.int.stratio.com
+esx49am                 ansible_host=esx49am.int.stratio.com
+esx50bm                 ansible_host=esx50bm.int.stratio.com
+esx01bm                 ansible_host=esx01bm.int.stratio.com
+esx02bm                 ansible_host=esx02bm.int.stratio.com
+esx01cm                 ansible_host=esx01cm.int.stratio.com
+esx02cm                 ansible_host=esx02cm.int.stratio.com
+
+### ############################ ###
+###      END      ESXs           ###
+### ############################ ###
+
+
+### ############################ ###
+###      PHYSICAL MACHINES       ###
+### ############################ ###
+### Envs ###
+[capsaicinas]
+capsaicina01            ansible_host=capsaicina01.labs.stratio.com ansible_ssh_user=root     ansible_hostname=capsaicina01
+capsaicina02            ansible_host=capsaicina02.labs.stratio.com ansible_ssh_user=root     ansible_hostname=capsaicina02
+capsaicina03            ansible_host=capsaicina03.labs.stratio.com ansible_ssh_user=root     ansible_hostname=capsaicina03
+capsaicina04            ansible_host=capsaicina04.labs.stratio.com ansible_ssh_user=root     ansible_hostname=capsaicina04
+capsaicina05            ansible_host=capsaicina05.labs.stratio.com ansible_ssh_user=root     ansible_hostname=capsaicina05
+capsaicina06            ansible_host=capsaicina06.labs.stratio.com ansible_ssh_user=root     ansible_hostname=capsaicina06
+capsaicina07            ansible_host=capsaicina07.labs.stratio.com ansible_ssh_user=root     ansible_hostname=capsaicina07
+
+[fullerenos]
+fullereno01             ansible_host=fullereno01.labs.stratio.com
+fullereno02             ansible_host=fullereno02.labs.stratio.com
+fullereno03             ansible_host=fullereno03.labs.stratio.com
+fullereno04             ansible_host=fullereno04.labs.stratio.com
+fullereno05             ansible_host=fullereno05.labs.stratio.com
+fullereno06             ansible_host=fullereno06.labs.stratio.com
+fullereno07             ansible_host=fullereno07.labs.stratio.com
+fullereno08             ansible_host=fullereno08.labs.stratio.com
+fullereno09             ansible_host=fullereno09.labs.stratio.com
+fullereno10             ansible_host=fullereno10.labs.stratio.com
+fullereno11             ansible_host=fullereno11.labs.stratio.com
+fullereno12             ansible_host=fullereno12.labs.stratio.com
+fullereno13             ansible_host=fullereno13.labs.stratio.com
+fullereno14             ansible_host=fullereno14.labs.stratio.com
+fullereno15             ansible_host=fullereno15.labs.stratio.com
+fullereno16             ansible_host=fullereno16.labs.stratio.com
+fullereno17             ansible_host=fullereno17.labs.stratio.com
+fullereno18             ansible_host=fullereno18.labs.stratio.com
+fullereno19             ansible_host=fullereno19.labs.stratio.com
+fullereno20             ansible_host=fullereno20.labs.stratio.com
+
+[fullerenos_mgmt]
+10.160.0.[61:80]
+
+[fullek8s]
+master01                ansible_host=master01.fullek8s.labs.stratio.com
+node01                  ansible_host=node01.fullek8s.labs.stratio.com
+node02                  ansible_host=node02.fullek8s.labs.stratio.com
+node03                  ansible_host=node03.fullek8s.labs.stratio.com
+node04                  ansible_host=node04.fullek8s.labs.stratio.com
+node05                  ansible_host=node05.fullek8s.labs.stratio.com
+node06                  ansible_host=node06.fullek8s.labs.stratio.com
+node07                  ansible_host=node07.fullek8s.labs.stratio.com
+node08                  ansible_host=node08.fullek8s.labs.stratio.com
+
+[fullek8s_mgmt]
+10.160.0.[61:69]
+
+### ############################ ###
+###  END PHYSICAL MACHINES       ###
+### ############################ ###     
+
+
+### ############################ ###
+###  START SWITCHES CPD          ###
+### ############################ ###  
+[Switches_CPD:children]  
+Switches_CPD_DellOS9 
+Switches_CPD_DellOS6
+Switches_CPD_NoDell
+
+[Switches_CPD_DellOS9]   
+r1-sw2                          ansible_host=r1-sw2.int.stratio.com
+r1-sw3                          ansible_host=r1-sw3.int.stratio.com
+r2-sw2                          ansible_host=r2-sw2.int.stratio.com
+r2-sw3                          ansible_host=r2-sw3.int.stratio.com
+r3-sw2                          ansible_host=r3-sw2.int.stratio.com
+r3-sw3                          ansible_host=r3-sw3.int.stratio.com
+r4-sw2                          ansible_host=r4-sw2.int.stratio.com
+r4-sw3                          ansible_host=r4-sw3.int.stratio.com
+r4-sw4                          ansible_host=r4-sw4.int.stratio.com
+r4-sw5                          ansible_host=r4-sw5.int.stratio.com
+r7-sw2                          ansible_host=r7-sw2.int.stratio.com
+r7-sw3                          ansible_host=r7-sw3.int.stratio.com
+r7-sw4                          ansible_host=r7-sw4.int.stratio.com
+r7-sw5                          ansible_host=r7-sw5.int.stratio.com
+r9-sw1                          ansible_host=r9-sw1.int.stratio.com
+r9-sw2                          ansible_host=r9-sw2.int.stratio.com
+
+[Switches_CPD_DellOS6]  
+r1-sw1                          ansible_host=r1-sw1.int.stratio.com
+r2-sw1                          ansible_host=r2-sw1.int.stratio.com
+r3-sw1                          ansible_host=r3-sw1.int.stratio.com ansible_command_timeout=300
+r4-sw1                          ansible_host=r4-sw1.int.stratio.com ansible_command_timeout=300
+r5-sw1                          ansible_host=r5-sw1.int.stratio.com
+r7-sw1                          ansible_host=r7-sw1.int.stratio.com
+r9-sw3                          ansible_host=r9-sw3.int.stratio.com
+r5-sw2-r5-sw3                   ansible_host=r5-sw2-r5-sw3.int.stratio.com
+#r5-sw2                          ansible_host=r5-sw2.int.stratio.com
+#r5-sw3                          ansible_host=r5-sw3.int.stratio.com
+r5-sw4-r5-sw5                   ansible_host=r5-sw4-r5-sw5.int.stratio.com
+#r5-sw4                          ansible_host=r5-sw4.int.stratio.com
+#r5-sw5                          ansible_host=r5-sw5.int.stratio.com
+r9-sw4-r9-sw5                   ansible_host=r9-sw4-r9-sw5.int.stratio.com
+#r9-sw4                          ansible_host=r9-sw4.int.stratio.com
+#r9-sw5                          ansible_host=r9-sw5.int.stratio.com
+e4p0sw1-sw2.int.stratio.com       ansible_host=172.19.0.10
+
+[Switches_CPD_NoDell]
+r6-sw1                          ansible_host=r6-sw1.int.stratio.com
+r6-sw2                          ansible_host=r6-sw2.int.stratio.com
+r6-sw3                          ansible_host=r6-sw3.int.stratio.com
+r6-sw4                          ansible_host=r6-sw4.int.stratio.com
+r6-sw5                          ansible_host=r6-sw5.int.stratio.com
+r9-sw8                          ansible_host=r9-sw8.int.stratio.com
+
+### ############################ ###
+###  END SWITCHES CPD          ###
+### ############################ ###  

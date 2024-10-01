@@ -1,0 +1,22 @@
+---
+- hosts: localhost
+  vars:
+    vcenter_hostname: "fluor.int.stratio.com"
+    vcenter_username: "administrator@vsphere.local"
+    vcenter_password: 
+    pause_seconds:    30
+  
+  tasks:
+    - name: Power on MV
+      vmware_guest:
+        hostname:         "{{ vcenter_hostname }}"
+        username:         "{{ vcenter_username }}"
+        password:         "{{ vcenter_password }}"
+        validate_certs:   no
+        name:          "{{ vm_name }}"
+        state:            poweredon
+      delegate_to: localhost
+
+    - name: Stop {{ pause_seconds }} seconds until the start of VM
+      pause:
+        seconds: "{{ pause_seconds }}"

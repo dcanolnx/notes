@@ -1,0 +1,22 @@
+---
+- hosts: r9-sw1.int.stratio.com
+  become: true
+  become_method: enable
+  vars:
+    env_vlan:
+
+  tasks:
+  - name: Config switches rack 9
+    dellos9_command:
+      commands: "show running-config | grep \"Vlan {{ env_vlan }}\""
+    when: "ansible_network_os == 'dellos9' and ('r9-sw1' in inventory_hostname)"
+    register: vlan_info
+    ignore_errors: true
+
+  - debug:
+      msg: "{{ vlan_info }}"
+
+  - fail:
+      msg: The VLAN {{ env_vlan }} already exists
+    when: '"interface Vlan {{env_vlan}}" in item'
+    with_items: "{{ vlan_info.stdout_lines }}"

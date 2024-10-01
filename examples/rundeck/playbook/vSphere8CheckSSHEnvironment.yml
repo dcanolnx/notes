@@ -1,0 +1,44 @@
+---
+- hosts: localhost
+  vars:
+    env_name: ""
+    ssh_user: "rundeck"
+    ssh_private_key: "/var/lib/rundeck/.ssh/id_rsa"
+
+  tasks:
+    - name: Check if /tmp/{{env_name}}_info.yaml exists
+      stat:
+        path: /tmp/{{env_name}}_info.yaml
+      register: file_stat
+      ignore_errors: yes
+
+    - name: Fail if the environment file does not exist
+      fail:
+        msg: "File /tmp/{{env_name}}_info.yaml does not exists"
+      when: not file_stat.stat.exists
+
+    - name: Check if ssh private key exists
+      stat:
+        path: "{{ssh_private_key}}"
+      register: file_stat
+      ignore_errors: yes
+
+    - name: Fail if the private key file does not exist
+      fail:
+        msg: "File {{ssh_private_key}} does not exists"
+      when: not file_stat.stat.exists
+
+    - name: Read YAML file
+      set_fact:
+        yaml_content: "{{ lookup('file', '/tmp/{{env_name}}_info.yaml') | from_yaml }}"
+
+    - name: Try to access to via SSH to hosts
+      shell: "ssh -i {{ssh_private_key}} {{ssh_user}}@{{ item.ip_address   }} uptime"
+      timeout: 10
+      loop: "{{ yaml_content.virtual_machines }}"
+      register: command_result
+      until: command_result.rc == 0
+      retries: 3
+      delay: 90
+      any_errors_fatal: true
+

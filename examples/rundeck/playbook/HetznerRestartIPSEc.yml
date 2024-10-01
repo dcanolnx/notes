@@ -1,0 +1,18 @@
+---
+- hosts: all
+  become: yes
+
+  tasks:
+
+  - name: Restart Strongswan 
+    systemd:
+      state:        "restarted"
+      name:         "strongswan"
+
+  - pause:
+      seconds: 5
+
+  - name: Restart veth-interface 
+    systemd:
+      state:        "restarted"
+      name:         "veth-interface"

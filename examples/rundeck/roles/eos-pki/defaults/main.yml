@@ -1,0 +1,31 @@
+---
+pki_path: "{{ playbook_dir }}/pki"
+pki_ca_info_path: "{{ pki_path }}/ca.info"
+pki_certs_temp: "{{ pki_path }}/.certs"
+pki_password: "str4t10"
+pki_ca_root_name: "ca.crt"
+pki_ca_root_key_name: "ca.key"
+pki_db_path: "{{ pki_path }}/db"
+pki_ca_root_key_path: "{{ pki_path }}/ca.key"
+pki_ca_root_csr_path: "{{ pki_path }}/ca.csr"
+pki_ca_root_path: "{{ pki_path }}/{{ pki_ca_root_name }}"
+pki_ca_root_bundle_path: "{{ pki_path }}/ca.bundle"
+pki_ca_root_password_path: "{{ pki_path }}/ca.password"
+pki_gencert_path: "{{ pki_path }}/.gencert"
+pki_domain: "{{ domain | default('keos.dev') }}"
+
+country: "ES"
+organization: "StratioLabs"
+common_name: "EXTERNAL_STANDALONE_HDFS"
+locality: "Madrid"
+
+company: "Stratio"
+city: "Madrid"
+ca_bundle: "ca.bundle"
+ca_conf: ca.info
+stores_password: dqd231123sdaedq313d123d312
+truststore_file: stratio.truststore
+keystore_file: "{{ cn }}.keystore"
+extended_key_usage_default:
+  - serverAuth
+  - clientAuth

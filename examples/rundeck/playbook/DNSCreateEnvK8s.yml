@@ -1,0 +1,204 @@
+---
+- hosts: all
+  become: true
+  vars:
+    dns_subdomain: "labs"
+    dns_domain: "stratio.com"
+    env_name:
+    env_range:
+    kerberos: true
+    hdfs: true
+    masters:
+    nodes:
+
+  tasks:
+  - name: Setting {{env_name}} to lowercase
+    set_fact:
+      env_name_lower: "{{ env_name | lower }}"
+      env_name_check: "{{ env_name | lower }}.{{dns_subdomain}}"
+
+  - name: Read /etc/named/zones.conf to know if enviroment is already added
+    shell: "cat /etc/named/zones.conf"
+    register: read_named_conf
+    when:
+      - "'helio' in inventory_hostname"
+
+  - name: Touch file /etc/named/labs.stratio.com/db.{{ env_name_lower }}.{{ dns_subdomain }}.{{ dns_domain }} on Helio
+    file:
+      owner: "named"
+      group: "named"
+      path: "/etc/named/labs.stratio.com/db.{{ env_name_lower }}.{{ dns_subdomain }}.{{ dns_domain }}"
+      state: "touch"
+    when:
+      - "'helio' in inventory_hostname"
+      - "env_name_check not in read_named_conf.stdout"
+      # - "read_named_conf.stdout.find(env_name_lower) == -1"
+
+  - name: Complete the file /etc/named/labs.stratio.com/db.{{ env_name_lower }}.{{ dns_subdomain }}.{{ dns_domain }}
+    blockinfile:
+      path: "/etc/named/labs.stratio.com/db.{{ env_name_lower }}.{{ dns_subdomain }}.{{ dns_domain }}"
+      state: "present"
+      create: true
+      marker: ""
+      block: |
+          $ORIGIN .
+          $TTL 300	; 5 minutes
+          {{ env_name_lower }}.{{ dns_subdomain }}.{{ dns_domain }}	IN SOA	10.200.0.254. asistemas.stratio.com. (
+                  2020010101 ; serial
+                  600        ; refresh (10 minutes)
+                  1800       ; retry (30 minutes)
+                  604800     ; expire (1 week)
+                  300        ; minimum (5 minutes)
+                  )
+                  NS         molibdeno.int.stratio.com.
+          $ORIGIN {{ env_name_lower }}.{{ dns_subdomain }}.{{ dns_domain }}.
+    when:
+      - "'helio' in inventory_hostname"
+      - "read_named_conf.stdout.find(env_name_check) == -1"
+
+  - name: Add Kerberos to /etc/named/labs.stratio.com/db.{{ env_name_lower }}.{{ dns_subdomain }}.{{ dns_domain }}
+    lineinfile:
+      path: "/etc/named/labs.stratio.com/db.{{ env_name_lower }}.{{ dns_subdomain }}.{{ dns_domain }}"
+      line: "kerberos              IN      A       {{ env_range | ipaddr(5) | ipaddr('address') }}"
+    when:
+      - "'helio' in inventory_hostname"
+      - "read_named_conf.stdout.find(env_name_check) == -1"
+      - kerberos
+
+  - name: Add HDFS to /etc/named/labs.stratio.com/db.{{ env_name_lower }}.{{ dns_subdomain }}.{{ dns_domain }}
+    lineinfile:
+      path: "/etc/named/labs.stratio.com/db.{{ env_name_lower }}.{{ dns_subdomain }}.{{ dns_domain }}"
+      line: "hdfs                  IN      A       {{ env_range | ipaddr(6) | ipaddr('address') }}"
+    when:
+      - "'helio' in inventory_hostname"
+      - "read_named_conf.stdout.find(env_name_check) == -1"
+      - hdfs
+
+  - name: Add Masters to /etc/named/labs.stratio.com/db.{{ env_name_lower }}.{{ dns_subdomain }}.{{ dns_domain }}
+    lineinfile:
+      path: "/etc/named/labs.stratio.com/db.{{ env_name_lower }}.{{ dns_subdomain }}.{{ dns_domain }}"
+      line: "master{{item}}        IN      A       {{ env_range | ipaddr(item | int + 10) | ipaddr('address') }}"
+    with_sequence: start=1 end={{ masters }} format="%02d"
+    when:
+      - "'helio' in inventory_hostname"
+      - "read_named_conf.stdout.find(env_name_check) == -1"
+
+  - name: Add Nodes to /etc/named/labs.stratio.com/db.{{ env_name_lower }}.{{ dns_subdomain }}.{{ dns_domain }}
+    lineinfile:
+      path: "/etc/named/labs.stratio.com/db.{{ env_name_lower }}.{{ dns_subdomain }}.{{ dns_domain }}"
+      line: "node{{item}}        IN      A       {{ env_range | ipaddr(item | int + 100) | ipaddr('address') }}"
+    with_sequence: start=1 end={{ nodes }} format="%02d"
+    when:
+      - "'helio' in inventory_hostname"
+      - "read_named_conf.stdout.find(env_name_check) == -1"
+
+  - name: Configure KEOS forward in file /etc/named/labs.stratio.com/db.{{ env_name_lower }}.{{ dns_subdomain }}.{{ dns_domain }}
+    blockinfile:
+      path: "/etc/named/labs.stratio.com/db.{{ env_name_lower }}.{{ dns_subdomain }}.{{ dns_domain }}"
+      state: "present"
+      create: true
+      marker: ""
+      block: |
+          ; Delegate KEOS Zone
+          k8s.{{ env_name_lower }}.{{ dns_subdomain }}.{{ dns_domain }}.     IN      NS      dns.{{ env_name_lower }}.{{ dns_subdomain }}.{{ dns_domain }}.
+          dns           IN      A       {{ env_range | ipaddr(255) | ipaddr('address') | replace('10.200','10.202') }}
+    when:
+      - "'helio' in inventory_hostname"
+      - "read_named_conf.stdout.find(env_name_check) == -1"
+
+  - name: Add blank line to /etc/named/labs.stratio.com/db.{{ env_name_lower }}.{{ dns_subdomain }}.{{ dns_domain }}
+    lineinfile:
+      path: "/etc/named/labs.stratio.com/db.{{ env_name_lower }}.{{ dns_subdomain }}.{{ dns_domain }}"
+      line: " "
+    when:
+      - "'helio' in inventory_hostname"
+      - "read_named_conf.stdout.find(env_name_check) == -1"
+
+  - name: Add {{env_name_lower}} to DNS /etc/named/zones.conf
+    blockinfile:
+      path: "/etc/named/zones.conf"
+      state: "present"
+      create: true
+      marker: ""
+      insertbefore: "^# OTHER ZONES$"
+      block: |
+          zone "{{ env_name_lower }}.{{ dns_subdomain }}.{{ dns_domain }}"            {
+                  type master;
+                  file "/etc/named/labs.stratio.com/db.{{ env_name_lower }}.{{ dns_subdomain }}.{{ dns_domain }}";
+                  allow-update { none; };
+          };
+    when:
+      - "'helio' in inventory_hostname"
+      - "read_named_conf.stdout.find(env_name_check) == -1"
+
+  - name: Reload named on Helio
+    systemd:
+      state: "reloaded"
+      name: "named"
+    when:
+      - "'helio' in inventory_hostname"
+      - "read_named_conf.stdout.find(env_name_check) == -1"
+
+  - name: Git add all new files and lines
+    shell: git add -A
+    args:
+      chdir: "/etc/named/"
+    when:
+      - "'helio' in inventory_hostname"
+      - "read_named_conf.stdout.find(env_name_check) == -1"
+
+  - name: Git commit -m 'Rundeck - Add Environment {{ env_name_lower }}'
+    shell: "git commit -m 'Rundeck - Add Environment {{ env_name_lower }}'"
+    args:
+      chdir: "/etc/named/"
+    when:
+      - "'helio' in inventory_hostname"
+      - "read_named_conf.stdout.find(env_name_check) == -1"
+
+  - name: Git push
+    shell: git push
+    args:
+      chdir: "/etc/named/"
+    when:
+      - "'helio' in inventory_hostname"
+      - "read_named_conf.stdout.find(env_name_check) == -1"
+
+  - name: Read /etc/named/zones.conf to know if enviroment is already added
+    shell: "cat /etc/named/zones.conf"
+    register: read_named_conf
+    when:
+      - "'molibdeno' in inventory_hostname"
+
+  - name: Touch file /etc/named/labs.stratio.com/{{ env_name_lower }}.{{ dns_subdomain }}.{{ dns_domain }} on Molibdeno
+    file:
+      owner: "named"
+      group: "named"
+      path: "/etc/named/labs.stratio.com/{{ env_name_lower }}.{{ dns_subdomain }}.{{ dns_domain }}"
+      state: "touch"
+    when:
+      - "'molibdeno' in inventory_hostname"
+      - "read_named_conf.stdout.find(env_name_check) == -1"
+
+  - name: Add {{env_name_lower}} to DNS /etc/named/zones.conf
+    blockinfile:
+      path: "/etc/named/zones.conf"
+      state: "present"
+      create: true
+      marker: ""
+      insertbefore: "^# OTHER ZONES$"
+      block: |
+          zone "{{ env_name_lower }}.{{ dns_subdomain }}.{{ dns_domain }}"            {
+                  type slave;
+                  masters { 10.120.0.2; };
+                  file "/etc/named/labs.stratio.com/{{ env_name_lower }}.{{ dns_subdomain }}.{{ dns_domain }}";
+          };
+    when:
+      - "'molibdeno' in inventory_hostname"
+      - "read_named_conf.stdout.find(env_name_check) == -1"
+
+  - name: Reload named on Molibdeno
+    systemd:
+      state: "reloaded"
+      name: "named"
+    when:
+      - "'molibdeno' in inventory_hostname"

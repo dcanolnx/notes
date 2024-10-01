@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  annotations:
+    replicator.v1.mittwald.de/replicate-to: .*
+  name: external-kerberos-config
+  namespace: keos-idp
+data:
+  krb5.conf: |
+    [libdefaults]
+     default_realm={{ realm_name | upper }}
+     dns_lookup_realm=false
+     dns_lookup_kdc=false
+     renew_lifetime=7d
+     ticket_lifetime=24h
+     rdns=false
+     forwardable=true
+     renewable=true
+     default_ccache_name=/tmp/krb5cc_%{uid}
+     udp_preference_limit=1
+
+    [realms]
+    {{ realm_name | upper }} = {
+      kdc = {{ kerberos_fqdn }}
+      admin_server = {{ kerberos_fqdn }}
+    }

@@ -1,0 +1,100 @@
+---
+- hosts: all
+  become: yes
+  vars:
+    hdfs_data_dir:    /hdfs
+    # purge_hdfs_data: yes
+    # reboot_services: no
+
+    # RunDeck parameters
+    principals:       ""
+    lab_cluster:      ""
+  tasks:
+    - name: Download kubectl and kubeconfig
+      vars:
+        kubectl_version: v1.20.7
+        kubectl_download_url: https://storage.googleapis.com/kubernetes-release/release/{{ kubectl_version }}/bin/linux/amd64/kubectl
+        keos_workspaces: http://keos-workspaces.int.stratio.com/keos-workspace-{{ lab_cluster }}.tgz
+      shell: >
+        curl -sS -L {{ kubectl_download_url }} --output /tmp/kubectl > /dev/null 2>&1 && \
+        chmod +x /tmp/kubectl && \
+        curl -sS "{{ keos_workspaces }}" | tar xvz -C /tmp keos-workspace-{{ lab_cluster }}/.kube/config > /dev/null 2>&1 && \
+        mv /tmp/keos-workspace-{{ lab_cluster }}/.kube/config /tmp/kubeconfig && \
+        rm -fr /tmp/keos-workspace-{{ lab_cluster }}
+      register: kubectl
+      until: kubectl.rc == 0
+      delay: 5
+      retries: 10
+      delegate_to: localhost
+
+    - name: Gather kerberos realm
+      # {{ansible_fqdn}}@{{kerberos_realm}}.keytab
+      shell: >
+        /tmp/kubectl --kubeconfig='/tmp/kubeconfig' -n keos-idp get cm idp -o jsonpath="{['data']['realm_name']}"
+      register: kubectl_realm
+      until: kubectl_realm.rc == 0
+      delay: 5
+      retries: 10
+      delegate_to: localhost
+
+    - name: Gather domain
+      # {{ansible_fqdn}}@{{kerberos_realm}}.keytab
+      shell: >
+        /tmp/kubectl --kubeconfig='/tmp/kubeconfig' -n keos-idp get cm idp -o jsonpath="{['data']['domain']}"
+      register: kubectl_domain
+      until: kubectl_domain.rc == 0
+      delay: 5
+      retries: 10
+      delegate_to: localhost
+
+    - name: Set kerberos_realm fact
+      set_fact:
+        kerberos_realm: "{{ kubectl_realm.stdout }}"
+        idp_host: "kerberos-lb.keos-idp.{{ kubectl_domain.stdout }}"
+
+    - name: Create HDFS principals & get keytabs
+      shell: >
+        /tmp/kubectl --kubeconfig='/tmp/kubeconfig' -n keos-idp exec -it kerberos-0 -c kerberos -- bash -c '
+          tmpdir=$(mktemp -p /dev/shm -t keytabs.XXX -d) && \
+          for principal in {{ principals }}; do
+            kadmin.local -q "addprinc -randkey $principal" > /dev/null 2>&1
+          done && \
+          kadmin.local -q "ktadd -k $tmpdir/{{ ansible_fqdn }}@{{ kerberos_realm }}.keytab -norandkey {{ principals }}" > /dev/null 2>&1 && \
+          keytab="$(cat $tmpdir/{{ ansible_fqdn }}@{{ kerberos_realm }}.keytab | base64 -w 0)" && \
+          rm -fr $tmpdir && \
+          echo $keytab'
+      register: kerberos_shell
+      until: kerberos_shell.rc == 0
+      delay: 5
+      retries: 10
+      delegate_to: localhost
+
+    - name: Purge kubectl & kubeconfig
+      file:
+        path: "/tmp/{{ item }}"
+        state: absent
+      loop:
+        - kubectl
+        - kubeconfig
+      delegate_to: localhost
+
+    - name: Create local user for each principal
+      vars:
+        principals_list: "{{ principals.split(' ') }}"
+      user:
+        name: "{{ item }}"
+        group: stratio
+      with_items: "{{ principals_list }}"
+      when: "'/' not in principals_list"
+
+    - name: Upload secret to Privatebin
+      command: "/var/lib/rundeck/sistemas-rundeck/scripts/python/privatebin/UploadSecret.py {{ kerberos_shell.stdout }}"
+      register: privatebin_url
+      delegate_to: localhost
+
+    - name: Print PrivateBin URL
+      vars:
+        urls:
+          Keytabs: "{{ privatebin_url.stdout }}"
+      debug:
+        var: urls

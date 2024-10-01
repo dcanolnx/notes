@@ -1,0 +1,41 @@
+<configuration>
+  <property>
+    <name>ssl.server.truststore.location</name>
+    <value>{{ hadoop_secrets_dir}}/{{ truststore_file }}</value>
+  </property>
+
+  <property>
+    <name>ssl.server.truststore.password</name>
+    <value>{{ stores_password }}</value>
+  </property>
+
+  <property>
+    <name>ssl.server.truststore.type</name>
+    <value>jks</value>
+  </property>
+
+  <property>
+    <name>ssl.server.truststore.reload.interval</name>
+    <value>{{ ssl_server_truststore_reload_interval }}</value>
+  </property>
+
+  <property>
+    <name>ssl.server.keystore.location</name>
+    <value>{{ hadoop_secrets_dir}}/{{ hadoop_keystore_file }}</value>
+  </property>
+
+  <property>
+    <name>ssl.server.keystore.password</name>
+    <value>{{ stores_password }}</value>
+  </property>
+
+  <property>
+    <name>ssl.server.keystore.keypassword</name>
+    <value>{{ stores_password }}</value>
+  </property>
+
+  <property>
+    <name>ssl.server.keystore.type</name>
+    <value>jks</value>
+  </property>
+</configuration>

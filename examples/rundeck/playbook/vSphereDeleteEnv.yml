@@ -1,0 +1,56 @@
+---
+- hosts: localhost
+  vars:
+    vcenter_hostname: "fluor.int.stratio.com"
+    vcenter_username: "administrator@vsphere.local"
+    vcenter_password: 
+    datacenter:       "Stratio.com"
+    env_name:      
+    parent_folder:    "Pool"
+   
+      
+  tasks:
+    - name: Get vms from /{{ datacenter }}/vm/{{ parent_folder }}/{{ env_name }}
+      vmware_vm_info:
+        hostname:         "{{ vcenter_hostname }}"
+        username:         "{{ vcenter_username }}"
+        password:         "{{ vcenter_password }}"
+        folder:           "/{{ datacenter }}/vm/{{ parent_folder }}/{{ env_name }}"
+        validate_certs:   no
+      delegate_to: localhost
+      register: vcenter_folder_info
+ 
+    - name: Power off all Env Machines
+      vmware_guest:
+        hostname:         "{{ vcenter_hostname }}"
+        username:         "{{ vcenter_username }}"
+        password:         "{{ vcenter_password }}"
+        validate_certs:   no
+        uuid:             "{{ item.uuid }}"
+        state:            poweredoff
+      delegate_to: localhost
+      with_items: "{{ vcenter_folder_info.virtual_machines }}"
+
+    - name: Remove all Env Machines 
+      vmware_guest:
+        hostname:         "{{ vcenter_hostname }}"
+        username:         "{{ vcenter_username }}"
+        password:         "{{ vcenter_password }}"
+        validate_certs:   no
+        uuid:             "{{ item.uuid }}"
+        state:            absent
+      delegate_to: localhost
+      with_items: "{{ vcenter_folder_info.virtual_machines }}"
+
+    - name: Delete {{ env_name }} folder 
+      vcenter_folder:
+        hostname:         "{{ vcenter_hostname }}"
+        username:         "{{ vcenter_username }}"
+        password:         "{{ vcenter_password }}"
+        datacenter_name:  "{{ datacenter }}"
+        validate_certs:   no
+        parent_folder:    "{{ parent_folder }}"
+        folder_name:      "{{ env_name }}"
+        folder_type:      vm
+        state:            absent
+      delegate_to: localhost

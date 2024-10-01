@@ -1,0 +1,35 @@
+default_realm = {{ realm_name|upper() }}
+
+[kdcdefaults]
+ kdc_ports = {{ kdc_port }}
+ kdc_tcp_ports = {{ kdc_port }}
+
+[logging]
+ default = FILE:/var/log/krb5libs.log
+ kdc = FILE:/var/log/krb5kdc.log
+ admin_server = FILE:/var/log/kadmind.log
+
+[realms]
+ {{ realm_name|upper() }} = {
+  master_key_type = aes256-cts
+  acl_file = {{ kadm5_acl_path }}
+  dict_file = /usr/share/dict/words
+  admin_keytab = /var/kerberos/krb5kdc/kadm5.keytab
+  supported_enctypes = aes256-cts:normal aes128-cts:normal des3-hmac-sha1:normal arcfour-hmac:normal des-hmac-sha1:normal des-cbc-md5:normal des-cbc-crc:normal
+  max_life = 2d
+  max_renewable_life = 5d
+  default_principal_flags = -dup-skey, +forwardable, -postdateable, +proxiable, +renewable, +tgt-based
+ }
+
+[dbdefaults]
+ ldap_kerberos_container_dn = {{ ldap_kerberos_container_dn }}
+
+[dbmodules]
+ openldap_ldapconf = {
+  db_library = kldap
+  ldap_kdc_dn = uid={{ kerberos_kdc_user }},{{ ou_ldap }}
+  ldap_kadmind_dn = uid={{ kerberos_admin_user }},{{ ou_ldap }}
+  ldap_service_password_file = {{ kerberos_secrets_folder }}/stash.keyfile
+  ldap_conns_per_server = 5
+  ldap_servers = ldaps://{{ fqdn }}:{{ ldap_port }}
+ }

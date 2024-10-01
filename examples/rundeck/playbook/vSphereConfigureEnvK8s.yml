@@ -1,0 +1,171 @@
+---
+- hosts: localhost
+  vars:
+    vcenter_hostname: "fluor.int.stratio.com"
+    vcenter_username: "administrator@vsphere.local"
+    vcenter_password: 
+    datacenter:       "Stratio.com"
+    env_name:         
+    env_range:        
+    env_gateway:      "{{ env_range | ipaddr(1) }}"
+
+    vm_user:          "root"
+    vm_password:      "stratio"
+    vm_dns:           "10.120.0.42"
+    pause_seconds:    300
+    parent_folder:    "Pool"
+
+  tasks:
+    - name: Get vms from /{{ datacenter }}/vm/{{ parent_folder }}/{{ env_name }}
+      vmware_vm_info:
+        hostname:         "{{ vcenter_hostname }}"
+        username:         "{{ vcenter_username }}"
+        password:         "{{ vcenter_password }}"
+        folder:           "/{{ datacenter }}/vm/{{ parent_folder }}/{{ env_name }}"
+        validate_certs:   no
+      delegate_to: localhost
+      register: vcenter_folder_info
+    
+    - name: Change hostname of environment machines
+      vmware_vm_shell:
+        hostname:         "{{ vcenter_hostname }}"
+        username:         "{{ vcenter_username }}"
+        password:         "{{ vcenter_password }}"
+        validate_certs:   no
+        datacenter:       "{{ datacenter }}"
+        folder:           "/{{ datacenter }}/vm/{{ parent_folder }}/{{ env_name }}"
+        vm_id_type:       "uuid"
+        vm_id:            "{{ item.uuid }}"
+        vm_username:      "{{ vm_user }}"
+        vm_password:      "{{ vm_password }}"
+        vm_shell:         "/usr/bin/hostnamectl"
+        vm_shell_args:    "set-hostname {{ item.guest_name | regex_replace('.*-','') }}.{{ env_name | lower }}.labs.stratio.com --static"
+      delegate_to: localhost
+      with_items: "{{ vcenter_folder_info.virtual_machines }}"
+
+    - name: Configure interface - Add base config
+      vmware_vm_shell:
+        hostname:         "{{ vcenter_hostname }}"
+        username:         "{{ vcenter_username }}"
+        password:         "{{ vcenter_password }}"
+        validate_certs:   no
+        datacenter:       "{{ datacenter }}"
+        folder:           "/{{ datacenter }}/vm/{{ parent_folder }}/{{ env_name }}"
+        vm_id_type:       "uuid"
+        vm_id:            "{{ item.uuid }}"
+        vm_username:      "{{ vm_user }}"
+        vm_password:      "{{ vm_password }}"
+        vm_shell:         "/bin/echo"
+        vm_shell_args:    "\"TYPE=Ethernet\nPROXY_METHOD=none\nBROWSER_ONLY=no\nBOOTPROTO=none\nDEFROUTE=yes\nIPV4_FAILURE_FATAL=no\nIPV6INIT=no\nNAME=ens192\nUUID=bc3a4b4f-7de7-4175-abf2-eaf654f68877\nDEVICE=ens192\nONBOOT=yes\nIPV6_PRIVACY=no\nDNS1={{ vm_dns }}\nPREFIX={{ env_gateway | ipv4('prefix') }}\nGATEWAY={{ env_gateway | ipaddr('address') }}\" > /etc/sysconfig/network-scripts/ifcfg-ens192"
+      delegate_to: localhost
+      with_items: "{{ vcenter_folder_info.virtual_machines }}"
+      
+    - name: Configure interface - Disable IPv6
+      vmware_vm_shell:
+        hostname:         "{{ vcenter_hostname }}"
+        username:         "{{ vcenter_username }}"
+        password:         "{{ vcenter_password }}"
+        validate_certs:   no
+        datacenter:       "{{ datacenter }}"
+        folder:           "/{{ datacenter }}/vm/{{ parent_folder }}/{{ env_name }}"
+        vm_id_type:       "uuid"
+        vm_id:            "{{ item.uuid }}"
+        vm_username:      "{{ vm_user }}"
+        vm_password:      "{{ vm_password }}"
+        vm_shell:         "/bin/echo"
+        vm_shell_args:    "\"net.ipv6.conf.all.disable_ipv6 = 1\nnet.ipv6.conf.default.disable_ipv6 = 1\" >> /etc/sysctl.conf"
+      delegate_to: localhost
+      with_items: "{{ vcenter_folder_info.virtual_machines }}"
+
+    - name: Configure interface - IP - Kerberos
+      vmware_vm_shell:
+        hostname:         "{{ vcenter_hostname }}"
+        username:         "{{ vcenter_username }}"
+        password:         "{{ vcenter_password }}"
+        validate_certs:   no
+        datacenter:       "{{ datacenter }}"
+        folder:           "/{{ datacenter }}/vm/{{ parent_folder }}/{{ env_name }}"
+        vm_id_type:       "uuid"
+        vm_id:            "{{ item.uuid }}"
+        vm_username:      "{{ vm_user }}"
+        vm_password:      "{{ vm_password }}"
+        vm_shell:         "/bin/echo"
+        vm_shell_args:    "\"IPADDR={{ env_range | ipaddr(5) | ipaddr('address') }}\" >> /etc/sysconfig/network-scripts/ifcfg-ens192"
+      delegate_to: localhost
+      with_items: "{{ vcenter_folder_info.virtual_machines }}"
+      when: 
+        - '"kerberos" in item.guest_name'
+
+    - name: Configure interface - IP - HDFS
+      vmware_vm_shell:
+        hostname:         "{{ vcenter_hostname }}"
+        username:         "{{ vcenter_username }}"
+        password:         "{{ vcenter_password }}"
+        validate_certs:   no
+        datacenter:       "{{ datacenter }}"
+        folder:           "/{{ datacenter }}/vm/{{ parent_folder }}/{{ env_name }}"
+        vm_id_type:       "uuid"
+        vm_id:            "{{ item.uuid }}"
+        vm_username:      "{{ vm_user }}"
+        vm_password:      "{{ vm_password }}"
+        vm_shell:         "/bin/echo"
+        vm_shell_args:    "\"IPADDR={{ env_range | ipaddr(6) | ipaddr('address') }}\" >> /etc/sysconfig/network-scripts/ifcfg-ens192"
+      delegate_to: localhost
+      with_items: "{{ vcenter_folder_info.virtual_machines }}"
+      when: 
+        - '"hdfs" in item.guest_name'
+
+    - name: Configure interface - IP - Master
+      vmware_vm_shell:
+        hostname:         "{{ vcenter_hostname }}"
+        username:         "{{ vcenter_username }}"
+        password:         "{{ vcenter_password }}"
+        validate_certs:   no
+        datacenter:       "{{ datacenter }}"
+        folder:           "/{{ datacenter }}/vm/{{ parent_folder }}/{{ env_name }}"
+        vm_id_type:       "uuid"
+        vm_id:            "{{ item.uuid }}"
+        vm_username:      "{{ vm_user }}"
+        vm_password:      "{{ vm_password }}"
+        vm_shell:         "/bin/echo"
+        vm_shell_args:    "\"IPADDR={{ env_range | ipaddr((item.guest_name | regex_replace('.*master','') | int) + 10) | ipaddr('address') }}\" >> /etc/sysconfig/network-scripts/ifcfg-ens192"
+      delegate_to: localhost
+      with_items: "{{ vcenter_folder_info.virtual_machines }}"
+      when: 
+        - '"master" in item.guest_name'
+
+    - name: Configure interface - IP - Nodes
+      vmware_vm_shell:
+        hostname:         "{{ vcenter_hostname }}"
+        username:         "{{ vcenter_username }}"
+        password:         "{{ vcenter_password }}"
+        validate_certs:   no
+        datacenter:       "{{ datacenter }}"
+        folder:           "/{{ datacenter }}/vm/{{ parent_folder }}/{{ env_name }}"
+        vm_id_type:       "uuid"
+        vm_id:            "{{ item.uuid }}"
+        vm_username:      "{{ vm_user }}"
+        vm_password:      "{{ vm_password }}"
+        vm_shell:         "/bin/echo"
+        vm_shell_args:    "\"IPADDR={{ env_range | ipaddr((item.guest_name | regex_replace('.*node','') | int) + 100) | ipaddr('address') }}\" >> /etc/sysconfig/network-scripts/ifcfg-ens192"
+      delegate_to: localhost
+      with_items: "{{ vcenter_folder_info.virtual_machines }}"
+      when: 
+        - '"node" in item.guest_name'
+    
+    - name: Restart Machine
+      vmware_vm_shell:
+        hostname:         "{{ vcenter_hostname }}"
+        username:         "{{ vcenter_username }}"
+        password:         "{{ vcenter_password }}"
+        validate_certs:   no
+        datacenter:       "{{ datacenter }}"
+        folder:           "/{{ datacenter }}/vm/{{ parent_folder }}/{{ env_name }}"
+        vm_id_type:       "uuid"
+        vm_id:            "{{ item.uuid }}"
+        vm_username:      "{{ vm_user }}"
+        vm_password:      "{{ vm_password }}"
+        vm_shell:         "/usr/bin/systemctl"
+        vm_shell_args:    "reboot"
+      delegate_to: localhost
+      with_items: "{{ vcenter_folder_info.virtual_machines }}"

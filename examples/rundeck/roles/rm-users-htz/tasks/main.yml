@@ -1,0 +1,19 @@
+---
+# - name: PURGE USER
+  # shell: "userdel -r {{user}}"
+
+- name: PURGUE USER
+  user:
+    name: "{{user}}"
+    state: absent
+    remove: yes
+
+- name: PURGE SUDO CONFIGURATION
+  lineinfile: 
+    dest: /etc/sudoers 
+    line: '{{user}} ALL=(ALL:ALL) NOPASSWD:ALL' 
+    owner: root
+    group: root 
+    mode: 0440 
+    validate: 'visudo -cf %s' 
+    state: absent

@@ -1,0 +1,11 @@
+# Configuración portgroups esxi
+- hosts: ESXi_ClusterA
+  become: true
+  vars:
+      env_name:
+      vSwitch: vSwitch0
+      
+  tasks:
+    - name: Remove portgroup
+      shell: esxcli network vswitch standard portgroup remove -p '{{ env_name }}' -v '{{ vSwitch }}'
+      when: "'esx' in inventory_hostname"

@@ -1,0 +1,165 @@
+---
+- hosts: localhost
+  vars:
+    web_image_tag:      ""
+    namespace:          "preproduction"
+    keos_kubeconfig_path: "/var/lib/rundeck/workspace/EKSProductionCluster/{% if namespace == 'production' %}PITconfig{% else %}PIT-PREconfig{% endif %}"
+    certificate_arn:    "arn:aws:acm:eu-west-3:105054799343:certificate/12cdc8f7-5caf-45fd-a8a5-dcea942ab653" 
+
+  tasks:
+
+  - name: Deploy Stratio SDS deployment
+    kubernetes.core.k8s:
+      kubeconfig: "{{ keos_kubeconfig_path }}"
+      state: present
+      definition: 
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: "stratio-sds"
+          namespace: "{% if namespace == 'production' %}production-public{% else %}preproduction{% endif %}"
+          labels:
+            app: "stratio-sds"
+        spec:
+          # how many pods and indicate which strategy we want for rolling update
+          replicas: 1
+          selector:
+            matchLabels:
+              app: "stratio-sds"
+          minReadySeconds: 10
+          template:
+            metadata:
+              namespace: "{% if namespace == 'production' %}production-public{% else %}preproduction{% endif %}"
+              labels:
+                app: "stratio-sds"
+            spec:
+              containers:
+                - name: stratio-sds
+                  image: stratio-releases.repo.stratio.com/stratio/sds-web:{{web_image_tag}}
+                  imagePullPolicy: Always
+                  ports:
+                    - containerPort: 80
+                      name: "stratio-sds"
+              imagePullSecrets:
+                - name: repostatiocom-secret
+
+  - name: Deploy Stratio SDS Service
+    kubernetes.core.k8s:
+      kubeconfig: "{{ keos_kubeconfig_path }}"
+      state: present
+      definition: 
+        kind: Service
+        apiVersion: v1
+        metadata:
+          name: "stratio-sds"
+          namespace: "{% if namespace == 'production' %}production-public{% else %}preproduction{% endif %}"
+        spec:
+          selector:
+            app: "stratio-sds"
+          ports:
+          - name: "stratio-sds"
+            port: 80
+            targetPort: "stratio-sds"
+            protocol: TCP
+          type: ClusterIP
+
+  - name: Deploy Stratio Web Ingress
+    kubernetes.core.k8s:
+      kubeconfig: "{{ keos_kubeconfig_path }}"
+      state: present
+      definition:
+        apiVersion: networking.k8s.io/v1
+        kind: Ingress
+        metadata:
+          name: "stratio-sds"
+          namespace: "{% if namespace == 'production' %}production-public{% else %}preproduction{% endif %}"
+          annotations:
+            alb.ingress.kubernetes.io/load-balancer-name: "eks-{{ namespace }}{% if namespace == 'production' %}-public{% endif %}-sds-web"
+            alb.ingress.kubernetes.io/certificate-arn: "{{certificate_arn}}"
+            alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS":443}]'
+            alb.ingress.kubernetes.io/scheme:  "{% if namespace == 'production' %}internet-facing{% else %}internal{% endif %}"
+            alb.ingress.kubernetes.io/ssl-redirect: '443'
+            alb.ingress.kubernetes.io/target-type: ip
+        spec:
+          ingressClassName: alb
+          rules:
+            - host: "desing{% if namespace == 'preproduction' %}-pre{% endif %}.stratio.com"
+              http:
+                paths:
+                  - path: /
+                    pathType: Prefix
+                    backend:
+                      service:
+                        name: "stratio-sds"
+                        port:
+                          number: 80
+
+  - name: Wait until ingress is ready
+    pause:
+      seconds : 10
+
+  - name: Get Stratio web ingress AWS internal Load Balancer
+    kubernetes.core.k8s_info:
+      kubeconfig: "{{ keos_kubeconfig_path }}"
+      api_version: v1
+      kind: Ingress
+      name: "stratio-sds"
+      namespace: "{% if namespace == 'production' %}production-public{% else %}preproduction{% endif %}"
+    register: kube_prom_web
+
+  - name: Wait until ALB is ready
+    wait_for:
+      host: "{{ kube_prom_web.resources[0].status.loadBalancer.ingress[0].hostname }}"
+      port: 443
+      delay: 10
+      state: present
+    ignore_errors: true
+
+  - name: Update Stratio Ingress with AWS internal Load Balancer
+    kubernetes.core.k8s:
+      kubeconfig: "{{ keos_kubeconfig_path }}"
+      state: present
+      definition:
+        apiVersion: networking.k8s.io/v1
+        kind: Ingress
+        metadata:
+          name: "stratio-sds"
+          namespace: "{% if namespace == 'production' %}production-public{% else %}preproduction{% endif %}"
+          annotations:
+            alb.ingress.kubernetes.io/load-balancer-name: "eks-{{ namespace }}{% if namespace == 'production' %}-public{% endif %}-sds-web"
+            alb.ingress.kubernetes.io/certificate-arn: "{{certificate_arn}}"
+            alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS":443}]'
+            alb.ingress.kubernetes.io/scheme: "{% if namespace == 'production' %}internet-facing{% else %}internal{% endif %}"
+            alb.ingress.kubernetes.io/ssl-redirect: '443'
+            alb.ingress.kubernetes.io/target-type: ip
+        spec:
+          ingressClassName: alb
+          rules:
+            - host: "desing{% if namespace == 'preproduction' %}-pre{% endif %}.stratio.com"
+              http:
+                paths:
+                  - path: /
+                    pathType: Prefix
+                    backend:
+                      service:
+                        name: "stratio-sds"
+                        port:
+                          number: 80
+            - host: "{{ kube_prom_web.resources[0].status.loadBalancer.ingress[0].hostname }}"
+              http:
+                paths:
+                  - path: /
+                    pathType: Prefix
+                    backend:
+                      service:
+                        name: "stratio-sds"
+                        port:
+                          number: 80
+
+  - name: Print ALB endpoints URLs
+    vars:
+      urls:
+        stratio_web:  "https://desing{% if namespace == 'preproduction' %}-pre{% endif %}.stratio.com"
+        aws_endpoint: "https://{{ kube_prom_web.resources[0].status.loadBalancer.ingress[0].hostname }}"
+    debug:
+      var: urls

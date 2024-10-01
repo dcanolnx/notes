@@ -1,0 +1,17 @@
+---
+## tasks file
+- name: Prepare Machines
+  hosts: all
+  become: true
+  vars:
+    rootlogin: yes
+
+  roles:
+    - { role: sysadmin-users, tags: sysadmin-users }
+    - { role: support-users, tags: support-users }
+    - { role: monitor-users, tags: monitor-users }
+    - { role: prepare-machines, tags: prepare-machines }
+    - { role: root-pass, tags: root-pass }
+    - { role: sudoreplay }
+    - { role: logrotate }
+    - { role: rundeck-user, tags: rundeck-user }

@@ -1,0 +1,54 @@
+---
+# tasks file for cpufreq
+- name: Install kernel-tools (RedHat & CentOS)
+  yum: name=kernel-tools state=latest
+  when: ansible_os_family == "RedHat"
+
+- name: Install kernel-tools (Ubuntu & Debian)
+  apt: name=cpufrequtils state=latest force_apt_get=yes
+  when: ansible_distribution == "Ubuntu"
+
+- name: Set CPU on {{cpu_governor}} mode (RedHat & CentOS)
+  shell: cpupower frequency-set --governor {{cpu_governor}}
+  when: ansible_os_family == "RedHat"  
+  ignore_errors: true
+
+- name: Enable cpupower service (RedHat & CentOS)
+  systemd:
+    name: cpupower
+    enabled: yes
+  when: ansible_os_family == "RedHat"
+  ignore_errors: true
+
+- name: Set CPU on {{cpu_governor}} mode (Ubuntu & Debian)
+  shell: for i in /sys/devices/system/cpu/cpu[0-9]* ; do cpufreq-set -c ${i//*cpu/} -g "{{cpu_governor}}" ; done
+  args:
+    executable: /bin/bash
+  when: ansible_distribution == "Ubuntu"
+  ignore_errors: true
+
+- name: Persist {{cpu_governor}} CPU mode (Ubuntu & Debian)
+  lineinfile: 
+    line: GOVERNOR="performance"
+    path: /etc/default/cpufrequtils
+  when: ansible_distribution == "Ubuntu"
+  ignore_errors: true
+
+- name: Disable ondemand service (Ubuntu & Debian)
+  systemd:
+    name: ondemand
+    enabled: no
+  when: ansible_distribution == "Ubuntu"
+  ignore_errors: true
+
+- name: Check CPU governor
+  shell: cat /sys/devices/system/cpu/cpu[0-9]*/cpufreq/scaling_governor | uniq
+  args:
+    executable: /bin/bash
+  register: governor
+  ignore_errors: true
+
+- name: Show CPU governor configured
+  debug:
+    msg: "CPU governor: {{governor.stdout}}"
+  ignore_errors: true

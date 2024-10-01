@@ -1,0 +1,25 @@
+---
+- name: Restore Snapshot VMs -> Stop Machine - {{ item.key }}
+  virt:
+    name: "{{ item.key }}"
+    state: shutdown
+    autostart: yes
+  when: ( item.key not in skip_restore and item.key != "bootstrap" ) or (item.key == "bootstrap" and restore_bootstrap )
+
+- name: Restore Snapshot VMs - {{ item.key }}
+  raw: virsh snapshot-revert {{ item.key }} --snapshotname {{ item.key }}_{{ snapshot_name }}
+  when: ( item.key not in skip_restore and item.key != "bootstrap" ) or (item.key == "bootstrap" and restore_bootstrap )
+
+- name: Restore VMs -> Wait until VM starts - {{ item.key }}
+  pause:
+    seconds: 15
+  when: ( item.key not in skip_restore and item.key != "bootstrap" ) or (item.key == "bootstrap" and restore_bootstrap )
+
+
+- name: Restore Snapshot VMs -> Start Machine - {{ item.key }}
+  virt:
+    name: "{{ item.key }}"
+    state: running
+    autostart: yes
+  when: ( item.key not in skip_restore and item.key != "bootstrap" ) or (item.key == "bootstrap" and restore_bootstrap )
+  ignore_errors: yes

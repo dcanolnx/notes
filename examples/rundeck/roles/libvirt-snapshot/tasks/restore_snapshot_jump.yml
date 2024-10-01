@@ -1,0 +1,7 @@
+---
+- name: Include vars
+  include_vars:
+    file: "{{ entorno }}"
+- name: Run snapshot host to host
+  include_tasks: restore_snapshot.yml 
+  with_dict: "{{ line_item.value }}"

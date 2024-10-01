@@ -1,0 +1,19 @@
+---
+- hosts: all
+  become: true
+  vars:
+    env_range: none
+
+  tasks:
+  - name: Search environment range
+    shell: "grep -ir '{{ (env_range | ipaddr(2) | ipaddr('address'))[:-1] }}' /etc/named/"
+    register: read_named_conf
+    when: "'helio' in inventory_hostname"
+    ignore_errors: true
+
+  - debug:
+      msg: "{{ read_named_conf }}"
+
+  - fail:
+      msg: The Range {{ env_range }} already exists
+    when: (env_range | ipaddr(2) | ipaddr('address'))[:-1] in read_named_conf.stdout

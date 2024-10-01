@@ -1,0 +1,7 @@
+---
+- name: Restart ESET
+  hosts: all
+  become: yes
+  tasks:
+    - name: Restart ESET
+      raw: systemctl restart eraserver

@@ -1,0 +1,53 @@
+---
+- hosts: localhost
+  vars:
+    pure_hostname:    "pure.int.stratio.com"
+    pure_api:         
+    env_name:        
+    disk_size:        
+    pure_cluster:     "ClusterA"
+
+    vcenter_hostname: "fluor.int.stratio.com"
+    vcenter_username: "administrator@vsphere.local"
+    vcenter_password: 
+    vcenter_esxi_hostname:  "esx02a.int.stratio.com"
+    pause_seconds:    10
+
+
+  tasks:
+  - name: Create volume {{ pure_cluster }}/{{ env_name | lower }} on {{ pure_hostname }}
+    purefa_volume:
+      fa_url:           "{{ pure_hostname }}"
+      api_token:        "{{ pure_api }}"
+      name:             "{{ pure_cluster }}/{{ env_name | lower }}"
+      size:             "{{ disk_size }}"
+      state:            "present"
+    register: info
+    delegate_to: localhost
+
+  - name: Add volume {{ pure_cluster }}/{{ env_name | lower }} to {{ pure_cluster }} hostgroup on {{ pure_hostname }}
+    purefa_hg:
+      fa_url:           "{{ pure_hostname }}"
+      api_token:        "{{ pure_api }}"
+      hostgroup:        "{{ pure_cluster }}"
+      volume:           "{{ pure_cluster }}/{{ env_name | lower }}"
+      state:            "present"
+    delegate_to: localhost
+
+  - name: Stop {{ pause_seconds }} to rescan datastorages
+    pause:
+      seconds: "{{ pause_seconds }}"
+
+  - name: Mount VMFS naa.624a9370{{ info.volume.serial | lower }} datastore to ESXis on {{ vcenter_esxi_hostname }}
+    vmware_host_datastore:
+      hostname:         "{{ vcenter_hostname }}"
+      username:         "{{ vcenter_username }}"
+      password:         "{{ vcenter_password }}"
+      validate_certs:   no
+      datastore_name:   "{{ env_name | lower }}"
+      datastore_type:   "vmfs"
+      vmfs_device_name: "naa.624a9370{{ info.volume.serial | lower }}"
+      vmfs_version:     6
+      esxi_hostname:    "{{ vcenter_esxi_hostname }}"
+      state:            "present"
+    delegate_to: localhost

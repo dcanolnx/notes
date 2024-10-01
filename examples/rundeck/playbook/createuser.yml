@@ -1,0 +1,16 @@
+---
+## tasks file for user creation 
+- hosts: all 
+  gather_facts: true
+  roles:
+    - { role: stratian-users-htz }
+    - ens
+
+  # tasks:
+  # - name: "[Temporal] Copy almalinux.repo to fix UAM mirror repo"
+  #   ansible.builtin.copy:
+  #     src: /var/lib/rundeck/workspace/almalinux.repo
+  #     dest: /etc/yum.repos.d/almalinux.repo
+  #     owner: root
+  #     group: root
+  #     mode: '0644'

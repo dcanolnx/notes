@@ -1,0 +1,11 @@
+[cicd]
+niquel.int.stratio.com
+kubeboot.int.stratio.com
+
+[CICDPRE]
+kubew1-dev.labs.stratio.com
+kubew2-dev.labs.stratio.com
+kubew3-dev.labs.stratio.com
+
+[LDAP]
+potasio.int.stratio.com

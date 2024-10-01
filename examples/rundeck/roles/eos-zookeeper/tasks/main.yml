@@ -1,0 +1,195 @@
+---
+- name: Check if SELinux is enabled
+  shell: getenforce
+  register: selinux
+
+- name: Set SELinux configuration to permissive
+  selinux:
+    policy: targeted
+    state: permissive
+
+- name: Disable SELinux right now!
+  shell: setenforce 0
+  when: selinux.stdout != "Disabled"
+
+- name: Install openjdk-1.8.0 package
+  package:
+    name: java-1.8.0-openjdk.x86_64
+    state: latest
+
+- name: Ensure {{ zookeeper_group }} group existance
+  group:
+    name: "{{ zookeeper_group }}"
+    state: present
+
+- name: Delete folder {{ zookeeper_home }}
+  file:
+    path: "{{zookeeper_home}}"
+    state: absent
+
+- name: Creates install directory {{ zookeeper_installdir }}
+  file:
+    path: "{{ item.dir }}"
+    state: directory
+    owner: "{{ item.user }}"
+    mode: "{{ zookeeper_dirmode }}"
+    group: "{{ zookeeper_group }}"
+  loop:
+    - dir: "{{ zookeeper_installdir }}"
+      user: root
+
+- name: Add zookeeper_user {{ zookeeper_user }}
+  user:
+    name: "{{ zookeeper_user }}"
+    group: "{{ zookeeper_group }}"
+    comment: "{{ zookeeper_user_description }}"
+    shell: /sbin/nologin
+    home: "{{ zookeeper_home }}"
+
+- name: Create datadir directory {{ zookeeper_datadir }}
+  file:
+    path: "{{ zookeeper_datadir }}"
+    state: directory
+    mode: "{{ zookeeper_dirmode }}"
+    owner: "{{ zookeeper_user }}"
+    group: "{{ zookeeper_group }}"
+
+- name: Check if Zookeeper is already on {{ role_path }}/files/zookeeper-{{ zookeeper_version }}.tar.gz
+  stat:
+    path: "{{ role_path }}/files/zookeeper-{{ zookeeper_version }}.tar.gz"
+  become: no
+  delegate_to: localhost
+  register: zookeeper_archive_stat
+
+- name: Download Zookeeper v{{ zookeeper_version }}
+  get_url:
+    url: "{{ zookeeper_url }}"
+    dest: "{{ role_path }}/files/"
+    timeout: 100
+  become: no
+  delegate_to: localhost
+  when: not zookeeper_archive_stat.stat.exists
+  register: zookeeper_downloaded
+
+- name: Fail if Zookeeper not found
+  fail:
+    msg: "{{ role_path }}/files/zookeeper-{{ zookeeper_version }}.tar.gz does NOT exist! Aborting..."
+  when: zookeeper_downloaded is failed
+
+- name: Copy Zookeeper v{{ zookeeper_version }} to {{ zookeeper_installdir }}
+  copy:
+    src: "zookeeper-{{ zookeeper_version }}.tar.gz"
+    dest: "{{ zookeeper_installdir }}"
+  when: zookeeper_downloaded is success or zookeeper_archive_stat.stat.exists
+
+- name: Unpack Zookeeper v{{ zookeeper_version }} to {{ zookeeper_installdir }}
+  unarchive:
+    src: "{{ zookeeper_installdir }}/zookeeper-{{ zookeeper_version }}.tar.gz"
+    dest: "{{ zookeeper_installdir }}"
+    remote_src: yes
+    owner: "{{ zookeeper_user }}"
+    group: "{{ zookeeper_group }}"
+
+- name: Move contents of folder {{ zookeeper_installdir }}/zookeeper-{{ zookeeper_version }} to {{ zookeeper_home }}
+  shell: mv -f {{ zookeeper_installdir }}/zookeeper-{{ zookeeper_version }}/* {{ zookeeper_home }}/
+
+- name: Apply permissions for zookeeper directory
+  file:
+    path: "{{ zookeeper_home }}"
+    state: directory
+    owner: "{{ zookeeper_user }}"
+    group: "{{ zookeeper_group }}"
+    mode: 0775
+    recurse: no
+
+- name: Stop running {{ zookeeper_servicename }} if any
+  service:
+    name: "{{ zookeeper_servicename }}"
+    state: stopped
+    enabled: yes
+  ignore_errors: yes
+
+- name: Delete folder {{ zookeeper_installdir }}/zookeeper-{{ zookeeper_version }}/
+  file:
+    path: "{{ zookeeper_installdir }}/zookeeper-{{ zookeeper_version }}"
+    state: absent
+
+- name: Delete downloaded file {{ zookeeper_installdir }}/zookeeper-{{ zookeeper_version }}.tar.gz
+  file:
+    path: "{{ zookeeper_installdir }}/zookeeper-{{ zookeeper_version }}.tar.gz"
+    state: absent
+
+# ### CONFIGURE ZOOKEEPER ###
+
+- name: Find JAVA_HOME
+  shell:
+    update-alternatives --list | grep -E "^java\s+" | sed -e "s/^[^\/]\+\(.*\)\/bin\/java/\1/"
+  register: java_home
+
+- name: Create {{ zookeeper_servicename }} log4j properties
+  template:
+    src: log4j.properties.j2
+    dest: "{{ zookeeper_confdir }}/log4j.properties"
+    mode: "{{ zookeeper_filemode }}"
+    owner: "{{ zookeeper_user }}"
+    group: "{{ zookeeper_group }}"
+
+- name: Assign ZooKeeper IDs
+  set_fact:
+    zookeeper_id: "{{ index }}"
+  when: ansible_fqdn == hdfs_host
+  loop: "{{ zookeeper_hostgroup|flatten(levels=1) }}"
+  loop_control:
+    index_var: index
+    loop_var: hdfs_host
+
+- name: Create {{ zookeeper_servicename }} conf file
+  template:
+    src: zoo_sample.cfg.j2
+    dest: "{{ zookeeper_confdir }}/zoo.cfg"
+    mode: "{{ zookeeper_filemode }}"
+    owner: "{{ zookeeper_user }}"
+    group: "{{ zookeeper_group }}"
+
+- name: Create {{ zookeeper_servicename }} myid for each node
+  template:
+    src: myid.j2
+    dest: "{{ zookeeper_datadir }}/myid"
+    mode: "{{ zookeeper_filemode }}"
+    owner: "{{ zookeeper_user }}"
+    group: "{{ zookeeper_group }}"
+
+- name: Create {{ zookeeper_servicename }} systemd unit
+  template:
+    src: zookeeper-systemd.j2
+    dest: /etc/systemd/system/{{ zookeeper_servicename }}.service
+    owner: root
+    group: root
+    mode: 644
+
+- name: Update systemd's configuration
+  shell: systemctl daemon-reload
+
+- name: Generate {{ zookeeper_servicename }} jaas conf file (securized)
+  template:
+    src: jaas.conf.j2
+    dest: "{{ zookeeper_confdir }}/jaas.conf"
+    mode: "{{ zookeeper_filemode }}"
+    owner: "{{ zookeeper_user }}"
+    group: "{{ zookeeper_group }}"
+  when: zookeeper_secure
+
+- name: Ensure log dir {{ zookeeper_logdir }} exists
+  file:
+    path: "{{ zookeeper_logdir }}"
+    state: directory
+    mode: "{{ zookeeper_dirmode }}"
+    owner: "{{ zookeeper_user }}"
+    group: "{{ zookeeper_group }}"
+
+- name: Enable and start {{ zookeeper_servicename }} ({{ zookeeper_start }})
+  service:
+    name: "{{ zookeeper_servicename }}"
+    state: restarted
+    enabled: yes
+  when: zookeeper_start

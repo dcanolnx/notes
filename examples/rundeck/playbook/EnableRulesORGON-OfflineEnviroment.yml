@@ -1,0 +1,24 @@
+---
+- name: Enable internet  connection
+  hosts: all
+  gather_facts: no
+  tasks:
+    - name: Labs EOSoffNight to Internet - Colt
+      raw: |
+        a
+        show
+        config firewall policy
+        edit 67
+        set status enable
+        next
+        end
+    - name: Labs EOSoffNight to Internet - Voda
+      raw: |
+        a
+        show
+        config firewall policy
+        edit 68
+        set status enable
+        next
+        end
+

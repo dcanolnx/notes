@@ -1,0 +1,39 @@
+---
+# tasks file for ens
+
+- name: SSH - Copy Banner File
+  ansible.builtin.copy:
+    src:  "{{role_path}}/files/Banner.txt"
+    dest: "/etc/ssh/banner.txt"
+    mode: "0644"
+
+- name: SSH - Ensure the ssh Banner is configurated
+  ansible.builtin.lineinfile:
+    path:         "/etc/ssh/sshd_config"
+    regexp:       "^(#)?(Banner).*"
+    line:         "Banner /etc/ssh/banner.txt"
+
+- name: SSH - Ensure ClientAliveInterval is configurated
+  ansible.builtin.lineinfile:
+    path:         "/etc/ssh/sshd_config"
+    regexp:       "^(#)?(ClientAliveInterval).*"
+    line:         "ClientAliveInterval 60"
+
+- name: SSH - Ensure ClientAliveCountMax is configurated
+  ansible.builtin.lineinfile:
+    path:         "/etc/ssh/sshd_config"
+    regexp:       "^(#)?(#ClientAliveCountMax).*"
+    line:         "ClientAliveCountMax 3"
+
+- name: SSH - Ensure MaxAuthTries is configurated
+  ansible.builtin.lineinfile:
+    path:         "/etc/ssh/sshd_config"
+    regexp:       "^(#)?(#MaxAuthTries).*"
+    line:         "MaxAuthTries 3"
+
+- name: SSH - Restart SSHD daemon
+  ansible.builtin.systemd:
+    state:  restarted
+    name:   sshd
+  ignore_errors: true
+

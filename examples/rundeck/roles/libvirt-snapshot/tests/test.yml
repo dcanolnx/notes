@@ -1,0 +1,7 @@
+---
+- hosts: spaceai
+  remote_user: root
+  become: true
+  roles:
+    - libvirt-snapshot
+    

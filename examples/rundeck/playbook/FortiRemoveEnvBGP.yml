@@ -1,0 +1,36 @@
+---
+- hosts: orgon
+  gather_facts: False
+  vars:
+    env_vlan:   
+    env_name:   
+    env_range:  
+
+  tasks:
+  - name: Get Firewall Rules
+    raw: |
+      config firewall policy
+        show
+      end
+    when: "'orgon' in inventory_hostname"
+    register: firewall_rules
+
+  - name: Delete Firewall Rules
+    raw: |
+      config firewall policy
+        delete {{ item | regex_search('edit\ ([0-9]+)') | regex_search('[0-9]+') }}
+      end
+    when: '"orgon" in inventory_hostname and "Labs_{{ env_vlan }}" in item and "Net_Labs_BPG_10.202.0.0/16" in item'
+    with_items: "{{ firewall_rules.stdout.split('next') }}"
+
+  - name: Delete BGP Config
+    raw: |
+      config router bgp
+        config neighbor-range
+          delete {{ env_vlan }}
+        end
+        config neighbor-group
+          delete "{{ env_name }}-peers"
+        end
+      end
+    when: "'orgon' in inventory_hostname"

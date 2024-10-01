@@ -1,0 +1,72 @@
+---
+- hosts: all
+  become: yes
+  vars:
+    hdfs_data_dir:  /var/hdfs_data/
+    kerberos_realm: "REALM.DOM"
+    # purge_hdfs_data: yes
+    # reboot_services: no
+    format_hdfs:    yes
+    idp_host:       ""
+    # pki_password: ""
+    pki_path: "/var/lib/rundeck/idp_labs-pki"
+  tasks:
+    - name: Define Extra vars to HDFS1
+      set_fact:
+        zookeeper_id:     0
+        namenode:         true
+        journalnode:      true
+        datanode:         true
+        primary_namenode: true
+      when: "'01' in inventory_hostname"
+
+    - name: Define Extra vars to HDFS1
+      set_fact:
+        zookeeper_id:       1
+        namenode:           true
+        journalnode:        true
+        datanode:           true
+        secondary_namenode: true
+      when: "'02' in inventory_hostname"
+
+    - name: Define Extra vars to HDFS1
+      set_fact:
+        zookeeper_id:     2
+        namenode:         false
+        journalnode:      true
+        datanode:         true
+      when: "'03' in inventory_hostname"
+
+    - name: Create HDFS principal and get keytab (Docker)
+      import_role:
+        name: eos-idp
+        tasks_from: create-principal-and-get-keytab-docker
+      vars:
+        kerberos_hostgroup: "{{ idp_host }}"
+        principals: "hdfs/{{ ansible_fqdn }} HTTP/{{ ansible_fqdn }}"
+        dest: "/tmp/{{ kerberos_realm }}.keytab"
+      when: idp_docker | default(true) | bool
+
+    - name: Set Kerberos FQDN fact
+      set_fact:
+        kerberos_fqdn:  "{{ idp_host }}"
+        kerberos_ip:    "{{ idp_host }}"
+
+    - name: Install NTP
+      import_role:
+        name: eos-ntp
+
+    - name: Install ZooKeeper cluster
+      import_role:
+        name: eos-zookeeper
+      vars:
+        zookeeper_hostgroup: "{{ ansible_play_hosts }}"
+
+    - name: Install HDFS standalone
+      import_role:
+        name: eos-hdfs
+      vars:
+        hdfs_hostgroup: "{{ ansible_play_hosts }}"
+        namenodes:
+          - "{{ ansible_play_hosts[0] }}"
+          - "{{ ansible_play_hosts[1] }}"

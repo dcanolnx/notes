@@ -1,0 +1,27 @@
+[logging]
+ default = FILE:/var/log/krb5libs.log
+ kdc = FILE:/var/log/krb5kdc.log
+ admin_server = FILE:/var/log/kadmind.log
+
+[libdefaults]
+ default_realm = {{ realm_name|upper() }}
+ dns_lookup_realm = false
+ dns_lookup_kdc = false
+ rdns = false
+ ticket_lifetime = 24h
+ renew_lifetime = 7d
+ forwardable = true
+ proxiable = true
+ default_ccache_name = FILE:/tmp/krb5cc_%{uid}
+
+[realms]
+ {{ realm_name|upper() }} = {
+  kdc = {{ hostvars[kerberos_hostgroup[0]]['ansible_fqdn'] }}
+  admin_server = {{ hostvars[kerberos_hostgroup[0]]['ansible_fqdn'] }}
+  default_domain = {{ realm_name|lower() }}
+  database_module = openldap_ldapconf
+ }
+
+[domain_realm]
+ .{{ realm_name|lower() }} = {{ realm_name|upper() }}
+ {{ realm_name|lower() }} = {{ realm_name|upper() }}

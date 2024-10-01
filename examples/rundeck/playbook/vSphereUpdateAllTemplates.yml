@@ -1,0 +1,279 @@
+# pip3 install --upgrade PyVmomi
+# pip3 install --upgrade netaddr
+# pip3 install --upgrade pip setuptools
+# pip3 install --upgrade git+https://github.com/vmware/vsphere-automation-sdk-python.git
+---
+- hosts: localhost
+  vars:
+    vcenter_hostname: "fluor.int.stratio.com"
+    vcenter_username: "administrator@vsphere.local"
+    vcenter_password: 
+    datacenter:       "Stratio.com"
+
+    vm_user:          "root"
+    vm_password:      "stratio"
+    vm_dns:           "10.120.0.42"
+    env_range:        "10.200.0.1/23"
+    env_gateway:      "{{ env_range | ipaddr(1) }}"
+
+  tasks:
+    - name: Get all templates from /{{ datacenter }}/vm/Templates
+      community.vmware.vmware_vm_info:
+        hostname:         "{{ vcenter_hostname }}"
+        username:         "{{ vcenter_username }}"
+        password:         "{{ vcenter_password }}"
+        folder:           "/{{ datacenter }}/vm/Templates"
+        vm_type:          "template"
+        validate_certs:   no
+      delegate_to: localhost
+      register: vcenter_templates_info
+
+    - name: Deploy all templates to VMs
+      community.vmware.vmware_guest:
+        hostname:       "{{ vcenter_hostname }}"
+        username:       "{{ vcenter_username }}"
+        password:       "{{ vcenter_password }}"
+        datacenter:     "{{ datacenter }}"
+        validate_certs: no
+        esxi_hostname:  "esx01a.int.stratio.com"
+        folder:         "{{ item.folder }}"
+        name:           '{{ item.guest_name.split("template-")[1] }}'
+        state:          present
+        template:       "{{ item.guest_name }}"
+        datastore:      "vvol_labs"
+        networks:
+        - name:         "Labs_Stratio"
+          start_connected: yes
+      delegate_to:      localhost
+      with_items: "{{ vcenter_templates_info.virtual_machines }}"
+      when:
+        - '"centos7" not in item.guest_name'
+
+    - name: Configure VMs network
+      community.vmware.vmware_guest:
+        hostname:       "{{ vcenter_hostname }}"
+        username:       "{{ vcenter_username }}"
+        password:       "{{ vcenter_password }}"
+        datacenter:     "{{ datacenter }}"
+        validate_certs: no
+        esxi_hostname:  "esx01a.int.stratio.com"
+        folder:         "{{ item.folder }}"
+        name:           '{{ item.guest_name.split("template-")[1] }}'
+        state:          present
+        datastore:      "vvol_labs"
+        networks:
+        - name:         "Labs_Stratio"
+          start_connected: yes
+      delegate_to:      localhost
+      with_items:       "{{ vcenter_templates_info.virtual_machines }}"
+      when:
+        - '"centos7" not in item.guest_name'
+
+    - name: PowerOn VMs
+      community.vmware.vmware_guest:
+        hostname:       "{{ vcenter_hostname }}"
+        username:       "{{ vcenter_username }}"
+        password:       "{{ vcenter_password }}"
+        datacenter:     "{{ datacenter }}"
+        validate_certs: no
+        esxi_hostname:  "esx01a.int.stratio.com"
+        folder:         "{{ item.folder }}"
+        name:           '{{ item.guest_name.split("template-")[1] }}'
+        state:          poweredon
+        datastore:      "vvol_labs"
+        networks:
+        - name:         "Labs_Stratio"
+          start_connected: yes
+      delegate_to:      localhost
+      with_items:       "{{ vcenter_templates_info.virtual_machines }}"
+      when:
+        - '"centos7" not in item.guest_name'
+
+    - ansible.builtin.pause:
+        seconds: 30
+
+    - name: Get vms from /{{ datacenter }}/vm/Templates
+      community.vmware.vmware_vm_info:
+        hostname:       "{{ vcenter_hostname }}"
+        username:       "{{ vcenter_username }}"
+        password:       "{{ vcenter_password }}"
+        folder:         "/{{ datacenter }}/vm/Templates"
+        vm_type:        "vm"
+        validate_certs: no
+      delegate_to: localhost
+      register: vcenter_vms_info
+
+    - name: Configure interface - Add base config
+      community.vmware.vmware_vm_shell:
+        hostname:       "{{ vcenter_hostname }}"
+        username:       "{{ vcenter_username }}"
+        password:       "{{ vcenter_password }}"
+        validate_certs: no
+        datacenter:     "{{ datacenter }}"
+        folder:         "{{ item.folder }}"
+        vm_id_type:     "uuid"
+        vm_id:          "{{ item.uuid }}"
+        vm_username:    "{{ vm_user }}"
+        vm_password:    "{{ vm_password }}"
+        vm_shell:       "/bin/echo"
+        vm_shell_args:  "\"TYPE=Ethernet\nPROXY_METHOD=none\nBROWSER_ONLY=no\nBOOTPROTO=none\nDEFROUTE=yes\nIPV4_FAILURE_FATAL=no\nIPV6INIT=no\nNAME=ens192\nUUID=bc3a4b4f-7de7-4175-abf2-eaf654f68877\nDEVICE=ens192\nONBOOT=yes\nIPV6_PRIVACY=no\nDNS1={{ vm_dns }}\nPREFIX={{ env_gateway | ipv4('prefix') }}\nGATEWAY={{ env_gateway | ipaddr('address') }}\" > /etc/sysconfig/network-scripts/ifcfg-ens192"
+      delegate_to: localhost
+      with_items: "{{ vcenter_vms_info.virtual_machines }}"
+
+    - name: Configure interface - IP
+      community.vmware.vmware_vm_shell:
+        hostname:       "{{ vcenter_hostname }}"
+        username:       "{{ vcenter_username }}"
+        password:       "{{ vcenter_password }}"
+        validate_certs: no
+        datacenter:     "{{ datacenter }}"
+        folder:         "{{ item.folder }}"
+        vm_id_type:     "uuid"
+        vm_id:          "{{ item.uuid }}"
+        vm_username:    "{{ vm_user }}"
+        vm_password:    "{{ vm_password }}"
+        vm_shell:       "/bin/echo"
+        vm_shell_args:  "\"IPADDR={{ env_range | ipaddr(idx + 456) | ipaddr('address') }}\" >> /etc/sysconfig/network-scripts/ifcfg-ens192"
+      delegate_to: localhost
+      with_items: "{{ vcenter_vms_info.virtual_machines }}"
+      loop_control:
+        index_var: idx
+    
+    - name: Restart VMs
+      community.vmware.vmware_vm_shell:
+        hostname:        "{{ vcenter_hostname }}"
+        username:        "{{ vcenter_username }}"
+        password:        "{{ vcenter_password }}"
+        validate_certs:  no
+        datacenter:      "{{ datacenter }}"
+        folder:          "{{ item.folder }}"
+        vm_id_type:      "uuid"
+        vm_id:           "{{ item.uuid }}"
+        vm_username:     "{{ vm_user }}"
+        vm_password:     "{{ vm_password }}"
+        vm_shell:        "/usr/bin/systemctl"
+        vm_shell_args:   "reboot"
+      delegate_to: localhost
+      with_items: "{{ vcenter_vms_info.virtual_machines }}"
+
+    - ansible.builtin.pause:
+        seconds: 30
+
+
+    - name: Update VMs
+      vars:
+        vms: |-
+          [
+          {% for host in vcenter_vms_info.virtual_machines %}
+            "{{ env_range | ipaddr(loop.index + 455) | ipaddr('address') | string}}",
+          {% endfor %}
+          ]
+      ansible.builtin.package:
+        name:         '*'
+        state:        latest
+      become:       True
+      delegate_to:  '{{ item }}'
+      loop:         '{{ vms }}'
+      
+    - name: Configure interface - Restore base config
+      community.vmware.vmware_vm_shell:
+        hostname:       "{{ vcenter_hostname }}"
+        username:       "{{ vcenter_username }}"
+        password:       "{{ vcenter_password }}"
+        validate_certs: no
+        datacenter:     "{{ datacenter }}"
+        folder:         "{{ item.folder }}"
+        vm_id_type:     "uuid"
+        vm_id:          "{{ item.uuid }}"
+        vm_username:    "{{ vm_user }}"
+        vm_password:    "{{ vm_password }}"
+        vm_shell:       "/bin/echo"
+        vm_shell_args:  "\"TYPE=Ethernet\nPROXY_METHOD=none\nBROWSER_ONLY=no\nBOOTPROTO=dhcp\nDEFROUTE=yes\nIPV4_FAILURE_FATAL=no\nIPV6INIT=no\nNAME=ens192\nDEVICE=ens192\nONBOOT=yes\nIPV6_PRIVACY=no\n\" > /etc/sysconfig/network-scripts/ifcfg-ens192"
+      delegate_to: localhost
+      with_items: "{{ vcenter_vms_info.virtual_machines }}"
+
+    - name: PowerOff VMs
+      community.vmware.vmware_vm_shell:
+        hostname:        "{{ vcenter_hostname }}"
+        username:        "{{ vcenter_username }}"
+        password:        "{{ vcenter_password }}"
+        validate_certs:  no
+        datacenter:      "{{ datacenter }}"
+        folder:          "{{ item.folder }}"
+        vm_id_type:      "uuid"
+        vm_id:           "{{ item.uuid }}"
+        vm_username:     "{{ vm_user }}"
+        vm_password:     "{{ vm_password }}"
+        vm_shell:        "/usr/bin/systemctl"
+        vm_shell_args:   "poweroff"
+      delegate_to: localhost
+      with_items: "{{ vcenter_vms_info.virtual_machines }}"
+
+    # - name: Transform Templates to VMs
+    #   community.vmware.vmware_guest:
+    #     hostname:       "{{ vcenter_hostname }}"
+    #     username:       "{{ vcenter_username }}"
+    #     password:       "{{ vcenter_password }}"
+    #     datacenter:     "{{ datacenter }}"
+    #     validate_certs: no
+    #     folder:         "{{ item.folder }}"
+    #     uuid:           "{{ item.uuid }}"
+    #     is_template:    no
+    #   delegate_to:      localhost
+    #   with_items: "{{ vcenter_templates_info.virtual_machines }}"
+    #   when:
+    #     - '"centos7" not in item.guest_name'
+
+    # - name: Rename old Templates
+    #   community.vmware.vmware_object_rename:
+    #     hostname:       "{{ vcenter_hostname }}"
+    #     username:       "{{ vcenter_username }}"
+    #     password:       "{{ vcenter_password }}"
+    #     validate_certs: no
+    #     new_name:       "{{ item.guest_name }}-old"
+    #     object_moid:    "{{ item.moid }}"
+    #     object_type:    VirtualMachine
+    #   delegate_to:      localhost
+    #   with_items: "{{ vcenter_templates_info.virtual_machines }}"
+    #   when:
+    #     - '"centos7" not in item.guest_name'
+  
+    - name: Remove Old Templates
+      community.vmware.vmware_guest:
+        hostname:       "{{ vcenter_hostname }}"
+        username:       "{{ vcenter_username }}"
+        password:       "{{ vcenter_password }}"
+        datacenter:     "{{ datacenter }}"
+        validate_certs: no
+        folder:         "{{ item.folder }}"
+        uuid:           "{{ item.uuid }}"
+        state:          "absent"
+      delegate_to:      localhost
+      with_items: "{{ vcenter_templates_info.virtual_machines }}"
+      when:
+        - '"centos7" not in item.guest_name'
+
+    - name: Rename New Templates
+      community.vmware.vmware_object_rename:
+        hostname:       "{{ vcenter_hostname }}"
+        username:       "{{ vcenter_username }}"
+        password:       "{{ vcenter_password }}"
+        validate_certs: no
+        new_name:       "template-{{ item.guest_name }}"
+        object_moid:    "{{ item.moid }}"
+        object_type:    VirtualMachine
+      delegate_to:      localhost
+      with_items: "{{ vcenter_vms_info.virtual_machines }}"
+      
+    - name: Transform VMs to Templates
+      community.vmware.vmware_guest:
+        hostname:       "{{ vcenter_hostname }}"
+        username:       "{{ vcenter_username }}"
+        password:       "{{ vcenter_password }}"
+        datacenter:     "{{ datacenter }}"
+        validate_certs: no
+        folder:         "{{ item.folder }}"
+        uuid:           "{{ item.uuid }}"
+        is_template:    yes
+      delegate_to:      localhost
+      with_items: "{{ vcenter_vms_info.virtual_machines }}"

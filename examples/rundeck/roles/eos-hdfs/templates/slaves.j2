@@ -1,0 +1,3 @@
+{% for item in hdfs_hostgroup %}
+{{ hostvars[item]['ansible_hostname'] }}
+{% endfor %}

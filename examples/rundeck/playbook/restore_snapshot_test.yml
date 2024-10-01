@@ -1,0 +1,11 @@
+---
+- hosts: all
+  gather_facts: true
+  become: true
+  tasks:
+    - name: Uptime
+      shell: uptime
+
+#  roles:
+#   - { role: libvirt-snapshot, when: "'hetzner' in inventory_hostname" }
+

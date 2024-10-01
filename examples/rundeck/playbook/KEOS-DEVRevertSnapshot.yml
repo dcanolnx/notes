@@ -1,0 +1,47 @@
+---
+- hosts: localhost
+  vars:
+    vcenter_hostname: "fluor.int.stratio.com"
+    vcenter_username: "administrator@vsphere.local"
+    vcenter_password:
+    datacenter:       "Stratio.com"
+    env_name:         
+      
+  tasks:
+    - name: Get vms from /{{ datacenter }}/vm/CICD/DEV
+      vmware_vm_info:
+        hostname:         "{{ vcenter_hostname }}"
+        username:         "{{ vcenter_username }}"
+        password:         "{{ vcenter_password }}"
+        folder:           "/{{ datacenter }}/vm/CICD/DEV"
+        validate_certs:   no
+      delegate_to: localhost
+      register: vcenter_folder_info
+ 
+    - name: Revert all snapshots 
+      vmware_guest_snapshot:
+        hostname:         "{{ vcenter_hostname }}"
+        username:         "{{ vcenter_username }}"
+        password:         "{{ vcenter_password }}"
+        validate_certs:   no
+        datacenter:       "{{ datacenter }}"
+        folder:           "/{{ datacenter }}/vm/CICD/DEV"
+        name:             "{{ item.guest_name }}"
+        state:            revert
+        snapshot_name:    "Inicial"
+      delegate_to: localhost
+      with_items: "{{ vcenter_folder_info.virtual_machines }}"
+
+    - name: Set the state on
+      community.vmware.vmware_guest_powerstate:
+        hostname: "{{ vcenter_hostname }}"
+        username: "{{ vcenter_username }}"
+        password: "{{ vcenter_password }}"
+        validate_certs:   no
+        datacenter: "{{ datacenter }}"
+        folder:   "/{{ datacenter }}/vm/CICD/DEV"
+        name:             "{{ item.guest_name }}"
+        state: powered-on
+      delegate_to: localhost
+      with_items: "{{ vcenter_folder_info.virtual_machines }}"
+

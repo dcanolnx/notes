@@ -1,0 +1,6 @@
+- name: "Generate root password"
+  local_action: shell < /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c8 > /tmp/pass
+  run_once: true
+  become: no
+
+

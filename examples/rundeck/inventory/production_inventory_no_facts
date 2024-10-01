@@ -1,0 +1,15 @@
+# This is the default ansible 'hosts' file.
+#
+# It should live in /etc/ansible/hosts
+#
+#   - Comments begin with the '#' character
+#   - Blank lines are ignored
+#   - Groups of hosts are delimited by [header] elements
+#   - You can enter hostnames or ip addresses
+#   - A hostname/ip can be a member of multiple groups
+localhost ansible_connection=local ansible_python_interpreter=/usr/bin/python3
+
+[firewalls]
+orgon                   ansible_host=orgon.int.stratio.com
+hidrogeno               ansible_host=hidrogeno.int.stratio.com
+deuterio                ansible_host=deuterio.int.stratio.com

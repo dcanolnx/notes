@@ -1,0 +1,564 @@
+---
+- name: Check if SELinux is enabled
+  shell: getenforce
+  register: selinux
+
+- name: Set SELinux configuration to permissive
+  selinux:
+    policy: targeted
+    state: permissive
+
+- name: Disable SELinux right now!
+  shell: setenforce 0
+  when: selinux.stdout != "Disabled"
+
+- name: Install openjdk-1.8.0 package
+  package:
+    name: java-1.8.0-openjdk.x86_64
+    state: latest
+
+- name: Create HDFS certs
+  import_role:
+    name: eos-pki
+    tasks_from: gencert
+  vars:
+    cn: "{{ ansible_fqdn }}"
+    sans: "DNS:{{ ansible_hostname }}"
+  delegate_to: localhost
+  become: no
+
+- name: Generate ssh keys "{{ hadoop_user }}"
+  user:
+    name: "{{hadoop_user}}"
+    generate_ssh_key: yes
+    ssh_key_bits: 2048
+    ssh_key_file: "/home/{{hadoop_user}}/.ssh/id_rsa"
+
+- name: Fetch public ssh key
+  shell: cat "/home/{{hadoop_user}}/.ssh/id_rsa.pub"
+  register: ssh_keys
+
+- name: Check keys
+  debug:
+    msg: "{{ssh_keys.stdout}}"
+
+- name: Deploy keys on all servers
+  authorized_key:
+    user: "{{hadoop_user}}"
+    key: "{{ssh_keys.stdout}}"
+  delegate_to: "{{item}}"
+  loop: "{{hdfs_hostgroup}}"
+
+- name: Accept new ssh fingerprints
+  shell: ssh-keyscan -H {{ansible_hostname}} >> ~/.ssh/known_hosts
+  become_user: "{{hadoop_user}}"
+  delegate_to: "{{item}}"
+  loop: "{{hdfs_hostgroup}}"
+
+- name: Accept new ssh fingerprints (FQDN)
+  shell: ssh-keyscan -H {{ansible_fqdn}} >> ~/.ssh/known_hosts
+  become_user: "{{hadoop_user}}"
+  delegate_to: "{{item}}"
+  loop: "{{hdfs_hostgroup}}"
+
+- name: Accept SSH fingerprint for 0.0.0.0/localhost (SecondaryNamenode workaround)
+  shell: >
+      ssh-keyscan -H 0.0.0.0 >> ~/.ssh/known_hosts
+      ssh-keyscan -H localhost >> ~/.ssh/known_hosts
+  become_user: "{{hadoop_user}}"
+  delegate_to: "{{item}}"
+  loop: "{{hdfs_hostgroup}}"
+
+- name: Get JAVA_HOME
+  shell: rpm -ql java-1.8.0-openjdk.x86_64 | grep jre | sed -e "s/jre.*/jre/" | uniq
+  register: java_home
+  args:
+    warn: false
+  tags: renew_certificates
+
+# NameNodes store data to {{dfs_namenode_name_dir}} so we must stop them before purging
+- name: Stop running HDFS NameNodes/DataNodes if any
+  shell: "{{hadoop_home}}/sbin/stop-dfs.sh"
+  become_user: "{{hadoop_user}}"
+  environment:
+    - HADOOP_CONF_DIR: "{{hadoop_conf_dir}}"
+    - JAVA_HOME: "{{java_home.stdout}}"
+    - PATH: '{{ansible_env.PATH}}:{{hadoop_sbin_dir}}:{{hadoop_bin_dir}}'
+  ignore_errors: yes
+  run_once: yes
+  tags: renew_certificates
+  when:
+    - namenode | bool
+    - purge_hdfs_data or reboot_services
+
+- name: Check for namenode data existence
+  stat:
+    path: "{{dfs_namenode_name_dir}}"
+  register: namenodedata
+  when: namenode | bool
+  tags: purge
+
+- name: Purge HDFS namenode data contents
+  shell: find "{{dfs_namenode_name_dir}}" -mindepth 1 -maxdepth 1 -exec rm -fr {} \;
+  when:
+    - namenode | bool
+    - namenodedata.stat.exists
+    - purge_hdfs_data
+  tags: purge
+
+- name: Check for datanode data existence
+  stat:
+    path: "{{dfs_datanode_data_dir}}"
+  register: datanodedata
+  when: datanode | bool
+  tags: purge
+
+- name: Purge HDFS datanode data contents
+  shell: find "{{dfs_datanode_data_dir}}" -mindepth 1 -maxdepth 1 -exec rm -fr {} \;
+  when:
+    - datanode | bool
+    - datanodedata.stat.exists
+    - purge_hdfs_data
+  tags: purge
+
+- name: Check for journalnode data existence
+  stat:
+    path: "{{dfs_journalnode_journal_dir}}"
+  register: journalnodedata
+  when: journalnode | bool
+  tags: purge
+
+- name: Purge HDFS journalnode data contents
+  shell: find "{{dfs_journalnode_journal_dir}}" -mindepth 1 -maxdepth 1 -exec rm -fr {} \;
+  when:
+    - journalnode | bool
+    - journalnodedata.stat.exists
+    - purge_hdfs_data
+  tags: purge
+
+- name: Create Stratio folder
+  file:
+    path: "{{stratio_dir}}"
+    state: directory
+    mode: 0775
+    recurse: yes
+
+- name: Create HDFS data folder
+  file:
+    dest: "{{ hdfs_data_dir }}"
+    state: directory
+    group: "{{hadoop_user}}"
+    owner: "{{hadoop_user}}"
+
+- name: Create HDFS namenode folder
+  file:
+    path: "{{dfs_namenode_name_dir}}"
+    state: directory
+    mode: 0775
+    recurse: yes
+    group: "{{hadoop_user}}"
+    owner: "{{hadoop_user}}"
+  when: namenode | bool
+
+- name: Create HDFS datanode folder
+  file:
+    path: "{{dfs_datanode_data_dir}}"
+    state: directory
+    mode: 0775
+    recurse: yes
+    group: "{{hadoop_user}}"
+    owner: "{{hadoop_user}}"
+  when: datanode | bool
+
+- name: Create HDFS journalnode folder
+  file:
+    path: "{{dfs_journalnode_journal_dir}}"
+    state: directory
+    mode: 0775
+    recurse: yes
+    group: "{{hadoop_user}}"
+    owner: "{{hadoop_user}}"
+  when: journalnode | bool
+
+- name: Check if Hadoop is already on {{role_path}}/files/{{hadoop_file}}
+  stat:
+    path: "{{role_path}}/files/{{hadoop_file}}"
+  become: no
+  run_once: yes
+  delegate_to: localhost
+  register: hadoop_archive_stat
+
+- name: Download Hadoop v{{hadoop_version}}
+  get_url:
+    url: "{{hadoop_download_url}}"
+    dest: "{{role_path}}/files/"
+    timeout: 100
+  become: no
+  run_once: yes
+  delegate_to: localhost
+  when:
+    - not hadoop_archive_stat.stat.exists
+  register: hadoop_downloaded
+
+- name: Failed to download {{hadoop_download_url}}
+  fail:
+    msg: "{{role_path}}/files/{{hadoop_file}} does NOT exist! Aborting..."
+  when:
+    - hadoop_downloaded is failed
+
+- name: Unpack Hadoop v{{hadoop_version}} to {{stratio_dir}}
+  unarchive:
+    src: "{{hadoop_file}}"
+    dest: "{{stratio_dir}}"
+    owner: "{{hadoop_user}}"
+    group: "{{hadoop_user}}"
+
+- name: Create HDFS link without version
+  file:
+    src: "{{hadoop_home}}-{{hadoop_version}}"
+    dest: "{{hadoop_home}}"
+    owner: "{{hadoop_user}}"
+    group: "{{hadoop_user}}"
+    state: link
+
+- name: Create HDFS conf link
+  file:
+    src: "{{hadoop_home}}-{{hadoop_version}}/etc/hadoop"
+    dest: "{{hadoop_conf_dir}}"
+    owner: "{{hadoop_user}}"
+    group: "{{hadoop_user}}"
+    state: link
+
+- name: Create HDFS secrets folder
+  file:
+    path: "{{hadoop_secrets_dir}}"
+    state: directory
+    mode: 0775
+    owner: "{{hadoop_user}}"
+    group: "{{hadoop_user}}"
+    recurse: yes
+
+- name: Create HDFS pids folder
+  file:
+    path: "{{hadoop_pid_dir}}"
+    state: directory
+    mode: 0775
+    recurse: yes
+    group: "{{hadoop_user}}"
+    owner: "{{hadoop_user}}"
+
+- name: Create HDFS logs folder
+  file:
+    path: "{{hadoop_log_dir}}"
+    state: directory
+    mode: 0775
+    owner: "{{hadoop_user}}"
+    group: "{{hadoop_user}}"
+    recurse: yes
+
+- name: Check for truststores needed
+  stat:
+    path: "{{ pki_gencert_path }}/{{ truststore_file }}"
+  become: no
+  register: truststores_check
+  delegate_to: localhost
+  tags: renew_certificates
+
+- name: Check for keystores needed
+  stat:
+    path: "{{ pki_gencert_path }}/{{ ansible_fqdn }}/{{ keystore_file }}"
+  become: no
+  register: keystores_check
+  delegate_to: localhost
+  failed_when: >
+    not truststores_check.stat.exists or
+    not keystores_check.stat.exists
+  tags: renew_certificates
+
+- name: Fail if any of the keystores or truststores are missing
+  fail:
+    msg: "Some keystores or truststores are missing!!"
+  when: >
+    not keystores_check.stat.exists or
+    not truststores_check.stat.exists
+
+- name: Copy HDFS keystores and truststores
+  copy:
+    src: "{{item.src}}"
+    dest: "{{hadoop_secrets_dir}}/{{item.file}}"
+    owner: "{{hadoop_user}}"
+    group: "{{hadoop_user}}"
+  with_items:
+    - { src: "{{ pki_gencert_path }}/{{truststore_file}}", file: "{{truststore_file}}" }
+    - { src: "{{ pki_gencert_path }}/{{ ansible_fqdn }}/{{keystore_file}}", file: "{{keystore_file}}" }
+  tags: renew_certificates
+
+- name: Copy HDFS keytabs
+  copy:
+    src: "/tmp/{{ kerberos_realm }}.keytab"
+    dest: "{{ hadoop_secrets_dir }}/{{ kerberos_realm }}.keytab"
+    owner: "{{ hadoop_user }}"
+    group: "{{ hadoop_user }}"
+    remote_src: yes
+  when:
+    - hadoop_security_authentication == "kerberos"
+
+- name: Remove temporal keytab
+  file:
+    path: "/tmp/{{ kerberos_realm }}.keytab"
+    state: absent
+
+- name: Limit dfs_replication if specified value is greater than defined maximum value {{ dfs_default_max_replication }}
+  set_fact:
+    dfs_replication: "{{ dfs_default_max_replication }}"
+  when:
+    - dfs_replication is defined
+    - dfs_replication|int > dfs_default_max_replication|int
+
+- name: Calculate DFS replication if dfs_replication is undefined
+  set_fact:
+    dfs_replication: "{{ hdfs_hostgroup | length}}"
+  register: autoset_replication
+  when: dfs_replication is undefined
+
+- name: Limit dfs_replication if setting is greater than {{dfs_default_max_replication}}
+  set_fact:
+    dfs_replication: "{{dfs_default_max_replication}}"
+  when:
+    - autoset_replication is defined
+    - dfs_replication|int > dfs_default_max_replication|int
+
+- name: Create HDFS config files
+  template:
+    src: "{{item}}.j2"
+    dest: "{{hadoop_conf_dir}}/{{item}}"
+    owner: "{{hadoop_user}}"
+    group: "{{hadoop_user}}"
+  with_items:
+    - core-site.xml
+    - hdfs-site.xml
+    - httpfs-site.xml
+    - slaves
+    - ssl-client.xml
+    - ssl-server.xml
+
+- name: Configure HDFS user limits
+  template:
+    src: "limits.conf.j2"
+    dest: "/etc/security/limits.d/{{hadoop_user}}.conf"
+    owner: "root"
+    group: "root"
+
+- name: Install psmisc package (fuser command for fencing)
+  package:
+    name: "{{item}}"
+    state: latest
+  with_items:
+    - psmisc
+  when: namenode | bool
+
+- name: Install krb5-workstation packages
+  package:
+    name: "{{item}}"
+    state: latest
+  with_items:
+    - krb5-workstation.x86_64
+  when:
+   - hadoop_security_authentication == "kerberos"
+
+- name: Copy kerberos configuration file
+  template:
+    src: krb5.conf.j2
+    dest: "/etc/krb5.conf"
+  when:
+   - hadoop_security_authentication == "kerberos"
+
+- name: Adding environment variables to '{{hadoop_user}}' user
+  lineinfile:
+    dest: "/home/{{hadoop_user}}/.bashrc"
+    regexp: "{{item.linestart}}"
+    line: "{{item.line}}"
+    state: present
+  with_items:
+    - linestart: '^export JAVA_HOME'
+      line: 'export JAVA_HOME={{java_home.stdout}}'
+    - linestart: '^export HADOOP_CONF_DIR'
+      line: 'export HADOOP_CONF_DIR={{hadoop_conf_dir}}'
+    - linestart:  '^export HADOOP_PID_DIR'
+      line: 'export HADOOP_PID_DIR={{hadoop_pid_dir}}'
+    - linestart: '^export PATH='
+      line: 'export PATH=$PATH:{{hadoop_sbin_dir}}:{{hadoop_bin_dir}}'
+
+- name: Start JournalNodes (HDFS-HA)
+  shell: hadoop-daemon.sh start journalnode
+  become_user: "{{hadoop_user}}"
+  environment:
+    - HADOOP_PID_DIR: "{{hadoop_pid_dir}}"
+    - HADOOP_CONF_DIR: "{{hadoop_conf_dir}}"
+    - JAVA_HOME: "{{java_home.stdout}}"
+    - PATH: '{{ansible_env.PATH}}:{{hadoop_sbin_dir}}:{{hadoop_bin_dir}}'
+  when:
+    - journalnode | bool
+    - format_hdfs | default(False) | bool
+  tags: renew_certificates
+
+- name: Format ZKFC (HDFS-HA)
+  shell: hdfs zkfc -formatZK -nonInteractive -force
+  become_user: "{{hadoop_user}}"
+  environment:
+    - HADOOP_PID_DIR: "{{hadoop_pid_dir}}"
+    - HADOOP_CONF_DIR: "{{hadoop_conf_dir}}"
+    - JAVA_HOME: "{{java_home.stdout}}"
+    - PATH: '{{ansible_env.PATH}}:{{hadoop_sbin_dir}}:{{hadoop_bin_dir}}'
+  when:
+    - namenode | bool
+    - primary_namenode | default(False) | bool
+    - format_hdfs | default(False) | bool
+
+- name: Format HDFS namenode
+  shell: hdfs namenode -format -force -nonInteractive
+  become_user: "{{hadoop_user}}"
+  environment:
+    - HADOOP_PID_DIR: "{{hadoop_pid_dir}}"
+    - HADOOP_CONF_DIR: "{{hadoop_conf_dir}}"
+    - JAVA_HOME: "{{java_home.stdout}}"
+    - PATH: '{{ansible_env.PATH}}:{{hadoop_sbin_dir}}:{{hadoop_bin_dir}}'
+  when:
+    - namenode | bool
+    - primary_namenode | default(False) | bool
+    - format_hdfs | default(False) | bool
+
+- name: Start NameNode (HDFS-HA)
+  shell: hadoop-daemon.sh start namenode
+  become_user: "{{hadoop_user}}"
+  environment:
+    - HADOOP_PID_DIR: "{{hadoop_pid_dir}}"
+    - HADOOP_CONF_DIR: "{{hadoop_conf_dir}}"
+    - JAVA_HOME: "{{java_home.stdout}}"
+    - PATH: '{{ansible_env.PATH}}:{{hadoop_sbin_dir}}:{{hadoop_bin_dir}}'
+  run_once: yes
+  when:
+    - namenode | bool
+    - primary_namenode | default(False) | bool
+    - format_hdfs | default(False) | bool
+  tags: renew_certificates
+
+- name: Set HDFS StandBy NameNode (HDFS-HA)
+  shell: hdfs namenode -bootstrapStandby -nonInteractive -force
+  become_user: "{{hadoop_user}}"
+  environment:
+    - HADOOP_PID_DIR: "{{hadoop_pid_dir}}"
+    - HADOOP_CONF_DIR: "{{hadoop_conf_dir}}"
+    - JAVA_HOME: "{{java_home.stdout}}"
+    - PATH: '{{ansible_env.PATH}}:{{hadoop_sbin_dir}}:{{hadoop_bin_dir}}'
+  when:
+    - namenode | bool
+    - secondary_namenode | default(False) | bool
+    - format_hdfs | default(False) | bool
+
+- name: Start StandBy NameNode (HDFS-HA)
+  shell: hadoop-daemon.sh start namenode
+  become_user: "{{hadoop_user}}"
+  environment:
+    - HADOOP_PID_DIR: "{{hadoop_pid_dir}}"
+    - HADOOP_CONF_DIR: "{{hadoop_conf_dir}}"
+    - JAVA_HOME: "{{java_home.stdout}}"
+    - PATH: '{{ansible_env.PATH}}:{{hadoop_sbin_dir}}:{{hadoop_bin_dir}}'
+  when:
+    - namenode | bool
+    - secondary_namenode | default(False) | bool
+    - format_hdfs | default(False) | bool
+  tags: renew_certificates
+
+- name: Start HDFS ZKFC (HDFS-HA)
+  shell: hadoop-daemon.sh start zkfc
+  become_user: "{{hadoop_user}}"
+  environment:
+    - HADOOP_PID_DIR: "{{hadoop_pid_dir}}"
+    - HADOOP_CONF_DIR: "{{hadoop_conf_dir}}"
+    - JAVA_HOME: "{{java_home.stdout}}"
+    - PATH: '{{ansible_env.PATH}}:{{hadoop_sbin_dir}}:{{hadoop_bin_dir}}'
+  when:
+    - namenode | bool
+    - format_hdfs | default(False) | bool
+  tags: renew_certificates
+
+- name: Start HDFS DataNodes (HDFS-HA)
+  shell: hadoop-daemon.sh start datanode
+  become_user: "{{hadoop_user}}"
+  environment:
+    - HADOOP_PID_DIR: "{{hadoop_pid_dir}}"
+    - HADOOP_CONF_DIR: "{{hadoop_conf_dir}}"
+    - JAVA_HOME: "{{java_home.stdout}}"
+    - PATH: '{{ansible_env.PATH}}:{{hadoop_sbin_dir}}:{{hadoop_bin_dir}}'
+  when:
+    - datanode | bool
+    - format_hdfs | default(False) | bool
+  tags: renew_certificates
+
+- name: Run kinit with hdfs user
+  shell: kinit -kt {{hadoop_secrets_dir}}/{{kerberos_realm}}.keytab hdfs/{{ansible_fqdn}}
+  become_user: "{{hadoop_user}}"
+  environment:
+    - HADOOP_PID_DIR: "{{hadoop_pid_dir}}"
+    - HADOOP_CONF_DIR: "{{hadoop_conf_dir}}"
+    - JAVA_HOME: "{{java_home.stdout}}"
+    - PATH: '{{ansible_env.PATH}}:{{hadoop_sbin_dir}}:{{hadoop_bin_dir}}'
+  when:
+    - namenode | bool
+    - primary_namenode | default(False) | bool
+    - format_hdfs | default(False) | bool
+    - hadoop_security_authentication == "kerberos"
+  tags: renew_certificates
+
+- name: Create HDFS folders and set owner and permissions
+  shell: hdfs dfs -mkdir -p {{item.path}} ; hdfs dfs -chmod {{item.perms}} {{item.path}} ; hdfs dfs -chown {{item.owner}} {{item.path}}
+  with_items: "{{hadoop_hdfs_folders}}"
+  become_user: "{{hadoop_user}}"
+  when:
+    - namenode | bool
+    - primary_namenode | default(False) | bool
+    - format_hdfs | default(False) | bool
+  environment:
+    - HADOOP_PID_DIR: "{{hadoop_pid_dir}}"
+    - HADOOP_CONF_DIR: "{{hadoop_conf_dir}}"
+    - JAVA_HOME: "{{java_home.stdout}}"
+    - PATH: '{{ansible_env.PATH}}:{{hadoop_sbin_dir}}:{{hadoop_bin_dir}}'
+
+- name: Get HDFS report
+  shell: hdfs dfsadmin -report
+  become_user: "{{hadoop_user}}"
+  environment:
+    - HADOOP_PID_DIR: "{{hadoop_pid_dir}}"
+    - HADOOP_CONF_DIR: "{{hadoop_conf_dir}}"
+    - JAVA_HOME: "{{java_home.stdout}}"
+    - PATH: '{{ansible_env.PATH}}:{{hadoop_sbin_dir}}:{{hadoop_bin_dir}}'
+  when:
+    - namenode | bool
+    - primary_namenode | default(False) | bool
+    - format_hdfs | default(False) | bool
+  register: hdfs_report
+  tags: renew_certificates
+
+- name: Remove Kerberos token for {{hadoop_user}}
+  shell: kdestroy
+  become_user: "{{hadoop_user}}"
+  environment:
+    - HADOOP_PID_DIR: "{{hadoop_pid_dir}}"
+    - HADOOP_CONF_DIR: "{{hadoop_conf_dir}}"
+    - JAVA_HOME: "{{java_home.stdout}}"
+    - PATH: '{{ansible_env.PATH}}:{{hadoop_sbin_dir}}:{{hadoop_bin_dir}}'
+  when:
+    - namenode | bool
+    - primary_namenode | default(False) | bool
+    - format_hdfs | default(False) | bool
+    - hadoop_security_authentication == "kerberos"
+  tags: renew_certificates
+
+- name: Print HDFS report
+  debug: msg="{{hdfs_report.stdout_lines}}"
+  when:
+    - namenode | bool
+    - primary_namenode | default(False) | bool
+    - format_hdfs | default(False) | bool
+  tags: renew_certificates

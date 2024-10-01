@@ -1,0 +1,10 @@
+---
+## tasks file
+- name: Rundeck User
+  hosts: appsint
+  become: true
+  vars:
+    rootlogin: yes
+
+  roles:
+    - { role: rundeck-user, tags: rundeck-user}

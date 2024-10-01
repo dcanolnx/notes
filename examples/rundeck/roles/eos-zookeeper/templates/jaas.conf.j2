@@ -1,0 +1,12 @@
+Server {
+       //com.sun.security.auth.module.Krb5LoginModule required
+       //useKeyTab=true
+       //keyTab="{{zookeeper_keytab}}"
+       //storeKey=true
+       //useTicketCache=false
+       //zookeeper_principal="{{zookeeper_principal}}";
+{% if zookeeper_digest %}
+       org.apache.zookeeper.server.auth.DigestLoginModule required
+       zookeeper_user_vault="{{zookeeper_vaultpass}}";
+{% endif %}
+};

@@ -1,0 +1,89 @@
+---
+- hosts: localhost
+  vars:
+    antora_site:        ""
+    namespace:          "production"
+    keos_kubeconfig_path: "/var/lib/rundeck/workspace/EKSProductionCluster/PITconfig"
+
+  tasks:
+  - name: Get SSO API configmap
+    kubernetes.core.k8s_info:
+      kubeconfig: "{{ keos_kubeconfig_path }}"
+      kind: configmaps
+      name: "apps-sso-api"
+      namespace: "{{ namespace }}-public"
+    register: kube_prom_sso_api
+
+  - debug:
+      var: item
+    register: founded
+    with_items: '{{ kube_prom_sso_api.resources[0].data["application.properties"].split("\n") }}'
+    when: 'antora_site in item'
+
+  - name: Generate application.properties to edit
+    copy: 
+      content: '{{ kube_prom_sso_api.resources[0].data["application.properties"] }}'
+      dest: /tmp/application.properties
+    when:
+      - 'founded.skipped'
+
+  - name: Get last index to add
+    ansible.builtin.shell: tail -1 /tmp/application.properties | cut -d'.' -f4 |  tr -dc '0-9' 
+    register: sso_api_index
+    when:
+      - 'founded.skipped'
+
+  - name: Add blank line to application.properties
+    ansible.builtin.shell: echo "\n" >> /tmp/application.properties
+    when:
+      - 'founded.skipped'
+
+  - name: Add new config to application.properties
+    ansible.builtin.lineinfile:
+      path: /tmp/application.properties
+      insertafter: EOF
+      line: '{{ item }}'
+    with_items:
+      - "spring.cloud.gateway.routes[{{ sso_api_index.stdout|int +1 }}].id={{ antora_site }}"
+      - "spring.cloud.gateway.routes[{{ sso_api_index.stdout|int +1 }}].uri=http://antora-{{ antora_site| replace('.','-') }}.production-public:8080/"
+      - "spring.cloud.gateway.routes[{{ sso_api_index.stdout|int +1 }}].predicates[0]=Path=/{{ antora_site }}/**"
+      - "spring.cloud.gateway.routes[{{ sso_api_index.stdout|int +1 }}].filters[0].name= CookieAuthenticationFilter"
+      - "spring.cloud.gateway.routes[{{ sso_api_index.stdout|int +1 }}].filters[0].args[value]= ROLE_DOC{{ antora_site }}"
+    when:
+      - 'founded.skipped'
+  
+  - name: Update "apps-sso-api" configmap
+    kubernetes.core.k8s:
+      kubeconfig: "{{ keos_kubeconfig_path }}"
+      state: present
+      definition: 
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: "apps-sso-api"
+          namespace: "{{ namespace }}-public"
+        data:
+          application.properties: "{{ lookup('file', '/tmp/application.properties') }}"
+    when:
+      - 'founded.skipped'
+
+  - name: Get SSO API configmap
+    kubernetes.core.k8s_info:
+      kubeconfig: "{{ keos_kubeconfig_path }}"
+      kind:       pods
+      namespace: "{{ namespace }}-public"
+    register: kube_prom_sso_api
+    when:
+      - 'founded.skipped'
+
+  - name: Reload apps-sso-api pod
+    kubernetes.core.k8s:
+      state:      absent
+      api_version: v1
+      kind:       pod
+      namespace: "{{ namespace }}-public"
+      name:       "{{ item.metadata.name }}"
+    with_items: "{{ kube_prom_sso_api.resources }}"
+    when:
+      - 'founded.skipped'
+      - 'item.metadata.name is search("apps-sso-api")'

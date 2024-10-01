@@ -1,0 +1,277 @@
+---
+- hosts: localhost
+  vars:
+    web_image:          ""
+    config:             ""
+    blog_url:           "https://blog-aws.int.stratio.com"
+    namespace:          "production"
+    keos_kubeconfig_path: "/var/lib/rundeck/workspace/EKSProductionCluster/APPSINTconfig"
+    certificate_arn:    "arn:aws:acm:eu-west-3:105054799343:certificate/12cdc8f7-5caf-45fd-a8a5-dcea942ab653" 
+
+  tasks:
+  - name: Generate Configmap to deploy
+    copy: 
+      content: |
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: "stratio-web-config"
+          namespace: "{{ namespace }}"
+          labels:
+            owner: "AppsInt"
+        data:
+          config.json: |
+            {{ lookup('file', config) | indent(width=4, first=False)}}
+      dest: /tmp/configmap.yaml
+    when: 
+      - config != None
+
+  - name: Create stratio-web-config configmap
+    kubernetes.core.k8s:
+      kubeconfig: "{{ keos_kubeconfig_path }}"
+      state: present
+      definition: "{{ lookup('file', '/tmp/configmap.yaml') | from_yaml }}"
+    when: 
+      - config != None
+
+  - ansible.builtin.file:
+      path: /tmp/configmap.yaml
+      state: absent
+    when: 
+      - config != None
+
+  - name: Deploy Stratio Web deployment
+    kubernetes.core.k8s:
+      kubeconfig: "{{ keos_kubeconfig_path }}"
+      state: present
+      definition: 
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: "stratio-web"
+          namespace: "{{ namespace }}"
+          labels:
+            app: "stratio-web"
+            owner: "AppsInt"
+        spec:
+          # how many pods and indicate which strategy we want for rolling update
+          replicas: 1
+          selector:
+            matchLabels:
+              app: "stratio-web"
+          minReadySeconds: 10
+          template:
+            metadata:
+              namespace: "{{ namespace }}"
+              labels:
+                app: "stratio-web"
+                owner: "AppsInt"
+            spec:
+              containers:
+                - name: stratio-web
+                  image: "{{ web_image }}"
+                  imagePullPolicy: Always
+                  ports:
+                    - containerPort: 80
+                      name: "stratio-web"
+                  env:
+                    - name: BLOG_URL
+                      value: "{{ blog_url }}"
+                  volumeMounts:
+                    - name: "stratio-web-config"
+                      readOnly: true
+                      mountPath: /usr/share/www/assets/config.json
+                      subPath: config.json
+              volumes:
+                - name: "stratio-web-config"
+                  configMap:
+                    name: "stratio-web-config"
+                    items:
+                      - key: config.json
+                        path: config.json
+              imagePullSecrets:
+                - name: repostatiocom-secret
+
+  - name: Deploy Stratio Web Service
+    kubernetes.core.k8s:
+      kubeconfig: "{{ keos_kubeconfig_path }}"
+      state: present
+      definition: 
+        kind: Service
+        apiVersion: v1
+        metadata:
+          name: "stratio-web"
+          namespace: "{{ namespace }}"
+        spec:
+          selector:
+            app: "stratio-web"
+          ports:
+          - name: "stratio-web"
+            port: 80
+            targetPort: "stratio-web"
+            protocol: TCP
+          type: ClusterIP
+
+  - name: Deploy Stratio Web Ingress
+    kubernetes.core.k8s:
+      kubeconfig: "{{ keos_kubeconfig_path }}"
+      state: present
+      definition:
+        apiVersion: networking.k8s.io/v1
+        kind: Ingress
+        metadata:
+          name: "stratio-web"
+          namespace: "{{ namespace }}"
+          annotations:
+            alb.ingress.kubernetes.io/load-balancer-name: "eks-{{ namespace }}-web"
+            alb.ingress.kubernetes.io/certificate-arn: "{{certificate_arn}}"
+            alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS":443}]'
+            alb.ingress.kubernetes.io/scheme: "{% if namespace == 'preproduction' %}internal{% else %}internet-facing{% endif %}"
+            alb.ingress.kubernetes.io/ssl-redirect: '443'
+            alb.ingress.kubernetes.io/target-type: ip
+        spec:
+          ingressClassName: alb
+          rules:
+            - host: "{% if namespace == 'preproduction' %}web.labs.stratio.com{% else %}stratio.com{% endif %}"
+              http:
+                paths:
+                  - path: /
+                    pathType: Prefix
+                    backend:
+                      service:
+                        name: "stratio-web"
+                        port:
+                          number: 80
+
+  - name: Wait until ingress is ready
+    pause:
+      seconds : 10
+
+  - name: Get Stratio web ingress AWS internal Load Balancer
+    kubernetes.core.k8s_info:
+      kubeconfig: "{{ keos_kubeconfig_path }}"
+      api_version: v1
+      kind: Ingress
+      name: "stratio-web"
+      namespace: "{{ namespace }}"
+    register: kube_prom_web
+
+  - name: Wait until ALB is ready
+    wait_for:
+      host: "{{ kube_prom_web.resources[0].status.loadBalancer.ingress[0].hostname }}"
+      port: 443
+      delay: 10
+      state: started
+
+  - name: Update Stratio Preproduction Ingress with AWS internal Load Balancer
+    kubernetes.core.k8s:
+      kubeconfig: "{{ keos_kubeconfig_path }}"
+      state: present
+      definition:
+        apiVersion: networking.k8s.io/v1
+        kind: Ingress
+        metadata:
+          name: "stratio-web"
+          namespace: "{{ namespace }}"
+          annotations:
+            alb.ingress.kubernetes.io/load-balancer-name: "eks-{{ namespace }}-web"
+            alb.ingress.kubernetes.io/certificate-arn: "{{certificate_arn}}"
+            alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS":443}]'
+            alb.ingress.kubernetes.io/scheme: "internal"
+            alb.ingress.kubernetes.io/ssl-redirect: '443'
+            alb.ingress.kubernetes.io/target-type: ip
+        spec:
+          ingressClassName: alb
+          rules:
+            - host: "web.labs.stratio.com"
+              http:
+                paths:
+                  - path: /
+                    pathType: Prefix
+                    backend:
+                      service:
+                        name: "stratio-web"
+                        port:
+                          number: 80
+            - host: "{{ kube_prom_web.resources[0].status.loadBalancer.ingress[0].hostname }}"
+              http:
+                paths:
+                  - path: /
+                    pathType: Prefix
+                    backend:
+                      service:
+                        name: "stratio-web"
+                        port:
+                          number: 80
+    when: namespace == 'preproduction'
+
+
+  - name: Update Stratio Production Ingress with AWS internal Load Balancer
+    kubernetes.core.k8s:
+      kubeconfig: "{{ keos_kubeconfig_path }}"
+      state: present
+      definition:
+        apiVersion: networking.k8s.io/v1
+        kind: Ingress
+        metadata:
+          name: "stratio-web"
+          namespace: "{{ namespace }}"
+          annotations:
+            alb.ingress.kubernetes.io/load-balancer-name: "eks-{{ namespace }}-web"
+            alb.ingress.kubernetes.io/certificate-arn: "{{certificate_arn}}"
+            alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS":443}]'
+            alb.ingress.kubernetes.io/scheme: internet-facing
+            alb.ingress.kubernetes.io/ssl-redirect: '443'
+            alb.ingress.kubernetes.io/target-type: ip
+        spec:
+          ingressClassName: alb
+          rules:
+            - host: "stratio.com"
+              http:
+                paths:
+                  - path: /
+                    pathType: Prefix
+                    backend:
+                      service:
+                        name: "stratio-web"
+                        port:
+                          number: 80
+            - host: "www.stratio.com"
+              http:
+                paths:
+                  - path: /
+                    pathType: Prefix
+                    backend:
+                      service:
+                        name: "stratio-web"
+                        port:
+                          number: 80
+            - host: "blog.stratio.com"
+              http:
+                paths:
+                  - path: /
+                    pathType: Prefix
+                    backend:
+                      service:
+                        name: "stratio-web"
+                        port:
+                          number: 80
+            - host: "{{ kube_prom_web.resources[0].status.loadBalancer.ingress[0].hostname }}"
+              http:
+                paths:
+                  - path: /
+                    pathType: Prefix
+                    backend:
+                      service:
+                        name: "stratio-web"
+                        port:
+                          number: 80
+    when: namespace == 'production-public'
+
+  - name: Print ALB endpoints URLs
+    vars:
+      urls:
+        stratio_web: "https://{% if namespace == 'preproduction' %}web.labs.stratio.com{% else %}stratio.com{% endif %}"
+        aws_endpoint: "https://{{ kube_prom_web.resources[0].status.loadBalancer.ingress[0].hostname }}"
+    debug:
+      var: urls

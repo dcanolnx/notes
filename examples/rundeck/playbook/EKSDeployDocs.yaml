@@ -1,0 +1,213 @@
+---
+- hosts: localhost
+  vars:
+    antora_image_tag:   ""
+    antora_site:        ""
+    ldap_auth_password: ""
+    namespace:          "production"
+    keos_kubeconfig_path: "/var/lib/rundeck/workspace/EKSProductionCluster/PITconfig"
+    certificate_arn:    "arn:aws:acm:eu-west-3:105054799343:certificate/eab15488-2527-4a5a-8aaf-d248c991f3e7" 
+
+  tasks:
+  - name: Create antora-{{antora_site| replace('.','-')}}-auth configmap
+    kubernetes.core.k8s:
+      kubeconfig: "{{ keos_kubeconfig_path }}"
+      state: present
+      definition: 
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: "antora-{{antora_site| replace('.','-')}}-auth-config"
+          namespace: "{{ namespace }}-public"
+        data:
+          ldapvirtualhost.conf: |-
+            <VirtualHost *:8081>
+                ProxyPreserveHost On
+                ProxyPass / http://localhost:80/
+                ProxyPassReverse / http://localhost:80/
+                ProxyTimeout 300
+
+                LogLevel warn
+
+                CustomLog   logs/ldapvirtualhost_access.log proxy
+                ErrorLog    logs/ldapvirtualhost_error.log
+                <LocationMatch ".*" >
+                    #LogLevel debug
+                    order deny,allow
+                    AuthName "{{antora_site}}"
+                    AuthType Basic
+                    AuthBasicProvider ldap
+                    AuthLDAPURL  "ldap://potasio.int.stratio.com:389/dc=stratio,dc=com?cn?sub?(objectClass=inetOrgPerson)"
+                    AuthLdapBindDN "cn=Manager_read,ou=Administrators,ou=Users,dc=stratio,dc=com"
+                    AuthLdapBindPassword "{{ldap_auth_password}}"
+                    Require ldap-group cn={{antora_site}},ou=Documentation,ou=Services,ou=Groups,dc=stratio,dc=com
+                    Require ldap-group cn=Stratio España,ou=Offices,ou=Internal,ou=Groups,dc=stratio,dc=com
+                    Require ldap-group cn=Stratio Colombia,ou=Offices,ou=Internal,ou=Groups,dc=stratio,dc=com
+                    Require ldap-group cn=Stratio Francia,ou=Offices,ou=Internal,ou=Groups,dc=stratio,dc=com
+                    Require ldap-group cn=Stratio UK,ou=Offices,ou=Internal,ou=Groups,dc=stratio,dc=com
+                </LocationMatch>
+            </VirtualHost>
+
+  - name: Deploy Antora deployment
+    kubernetes.core.k8s:
+      kubeconfig: "{{ keos_kubeconfig_path }}"
+      state: present
+      definition: 
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: "antora-{{antora_site| replace('.','-')}}"
+          namespace: "{{ namespace }}-public"
+          labels:
+            app: "antora-{{antora_site| replace('.','-')}}"
+        spec:
+          # how many pods and indicate which strategy we want for rolling update
+          replicas: 1
+          selector:
+            matchLabels:
+              app: "antora-{{antora_site| replace('.','-')}}"
+          minReadySeconds: 10
+          template:
+            metadata:
+              namespace: "{{ namespace }}-public"
+              labels:
+                app: "antora-{{antora_site| replace('.','-')}}"
+            spec:
+              containers:
+                - name: "antora-{{antora_site| replace('.','-')}}-auth"
+                  image: stratio-releases.repo.stratio.com/stratio/httpd-ldap-auth:0.1.0-SNAPSHOT
+                  imagePullPolicy: Always
+                  ports:
+                    - containerPort: 8081
+                      name: "{{antora_site| replace('.','-')}}-auth"
+                  volumeMounts:
+                  - name: "antora-{{antora_site| replace('.','-')}}-auth-config"
+                    mountPath: /usr/local/apache2/conf/httpd-ldap-auth/
+
+                - name: antora-{{antora_site| replace('.','-')}}
+                  image: stratio-releases.repo.stratio.com/stratio/antora-doc-build:{{antora_image_tag}}
+                  imagePullPolicy: Always
+                  ports:
+                    - containerPort: 80
+                      name: "{{antora_site| replace('.','-')}}-web"
+              volumes:
+                - name: "antora-{{antora_site| replace('.','-')}}-auth-config"
+                  configMap:
+                    name: "antora-{{antora_site| replace('.','-')}}-auth-config"
+              imagePullSecrets:
+                - name: repostatiocom-secret
+
+  - name: Get Antora web ingress AWS internal Load Balancer
+    kubernetes.core.k8s_info:
+      kubeconfig: "{{ keos_kubeconfig_path }}"
+      api_version: v1
+      kind: Ingress
+      name: "antora"
+      namespace: "{{ namespace }}-public"
+    register: kube_prom_antora
+
+  # - debug:
+  #     var: kube_prom_antora.resources[0]
+
+  - debug:
+      var: item.path
+    register: founded
+    with_items: "{{ kube_prom_antora.resources[0].spec.rules[0].http.paths }}"
+    when: '"/"+antora_site|string == item.path'
+
+  - name: Deploy Antora Service
+    kubernetes.core.k8s:
+      kubeconfig: "{{ keos_kubeconfig_path }}"
+      state: present
+      definition: 
+        kind: Service
+        apiVersion: v1
+        metadata:
+          name: "antora-{{antora_site| replace('.','-')}}"
+          namespace: "{{ namespace }}-public"
+        spec:
+          selector:
+            app: "antora-{{antora_site| replace('.','-')}}"
+          ports:
+          - name: "{{antora_site| replace('.','-')}}-auth"
+            port: 80
+            targetPort: "{{antora_site| replace('.','-')}}-auth"
+            protocol: TCP
+          - name: "{{antora_site| replace('.','-')}}"
+            port: 8080
+            targetPort: "{{antora_site| replace('.','-')}}-web"
+            protocol: TCP
+          type: ClusterIP
+    when:
+      - 'founded.skipped'
+
+  - name: Generate Ingress Yaml to edit
+    copy: 
+      content: "{{ kube_prom_antora.resources[0] | to_nice_yaml( indent=4, explicit_start=True) }}" 
+      dest: /tmp/ingress.yaml
+    when:
+      - 'founded.skipped'
+
+  - name: Add new config to ingress yaml
+    ansible.builtin.blockinfile:
+      path: /tmp/ingress.yaml
+      insertbefore: "^    -   host: eks-production-public-antora-1509339639.eu-west-3.elb.amazonaws.com"
+      marker :    "#Delete"
+      block: |
+        #Delete
+                    -   backend:
+                            service:
+                                name: antora-{{antora_site| replace('.','-')}}
+                                port:
+                                    number: 80
+                        path: /{{antora_site}}
+                        pathType: Prefix
+    when:
+      - 'founded.skipped'
+  
+  - ansible.builtin.lineinfile:
+      path: /tmp/ingress.yaml
+      state: absent
+      regexp: '^#Delete'
+    when:
+      - 'founded.skipped'
+
+  - name: Add new config to ingress yaml
+    ansible.builtin.blockinfile:
+      path: /tmp/ingress.yaml
+      insertbefore: "^status:"
+      marker :    "#Delete"
+      block: |
+        #Delete
+                    -   backend:
+                            service:
+                                name: antora-{{antora_site| replace('.','-')}}
+                                port:
+                                    number: 80
+                        path: /{{antora_site}}
+                        pathType: Prefix
+    when:
+      - 'founded.skipped'
+  
+  - ansible.builtin.lineinfile:
+      path: /tmp/ingress.yaml
+      state: absent
+      regexp: '^#Delete'
+    when:
+      - 'founded.skipped'
+
+  - name: Update Antora Ingress with AWS internal Load Balancer
+    kubernetes.core.k8s:
+      kubeconfig: "{{ keos_kubeconfig_path }}"
+      state: present
+      definition: "{{ lookup('file', '/tmp/ingress.yaml' ) | from_yaml }}"
+    when:
+      - 'founded.skipped'
+
+  - name: Print ALB endpoints URLs
+    vars:
+      urls:
+        passbolt: "https://docs.stratio.com/{{antora_site}}"
+        url: "https://{{ kube_prom_antora.resources[0].status.loadBalancer.ingress[0].hostname }}/{{antora_site}}"
+    debug:
+      var: urls

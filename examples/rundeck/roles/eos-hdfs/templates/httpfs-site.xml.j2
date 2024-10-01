@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+  <property>
+    <name>httpfs.authentication.type</name>
+    <value>{{ httpfs_authentication_type }}</value>
+  </property>
+{% if httpfs_authentication_type == "kerberos" %}
+  <property>
+    <name>httpfs.authentication.kerberos.principal</name>
+    <value>HTTP/_HOST@{{ kerberos_realm }}</value>
+  </property>
+  <property>
+    <name>httpfs.authentication.kerberos.keytab</name>
+    <value>{{ hadoop_secrets_dir }}/{{ kerberos_realm }}.keytab</value>
+  </property>
+{% endif %}
+  <property>
+    <name>httpfs.hadoop.authentication.type</name>
+    <value>{{ httpfs_hadoop_authentication_type }}</value>
+  </property>
+{% if httpfs_hadoop_authentication_type == "kerberos" %}
+  <property>
+    <name>httpfs.hadoop.authentication.kerberos.principal</name>
+    <value>HTTP/_HOST@{{ kerberos_realm }}</value>
+  </property>
+  <property>
+    <name>httpfs.hadoop.authentication.kerberos.keytab</name>
+    <value>{{ hadoop_secrets_dir }}/{{ kerberos_realm }}.keytab</value>
+  </property>
+{% endif %}
+</configuration>

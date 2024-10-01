@@ -1,0 +1,66 @@
+---
+# tasks file for sysadmin-users
+- name: FORCE CHANGE PASSWORD NEXT LOGIN
+  shell: 'chage -d 0 {{item}}'
+  with_items: "{{sysadmins}}"
+
+- name: DONT ALLOW SSH ONLY WITH PASSWORD
+  lineinfile: 
+    dest: /etc/ssh/sshd_config
+    regexp: '^PasswordAuthentication'
+    line: "PasswordAuthentication no" 
+    state: present
+
+- name: DONT DROP SESSION AFTER CHANGE PASSWORD
+  lineinfile: 
+    dest: /etc/ssh/sshd_config
+    regexp: '^ChallengeResponseAuthentication'
+    line: "ChallengeResponseAuthentication yes" 
+    state: present
+
+- name: CHANGE AUTHENTICATION TO 2 PHASES
+  blockinfile:
+    path: /etc/ssh/sshd_config
+    block: |
+      # Password + Publickey
+      Match Group sysadmin
+        PasswordAuthentication yes
+        AuthorizedKeysFile      .ssh/authorized_keys
+        AuthenticationMethods publickey,password publickey,keyboard-interactive
+       
+- name: PASSWORD CADUCITY 120 DAYS
+  shell: 'chage -M 120 {{item}}'
+  with_items: "{{sysadmins}}"
+
+- name: PASSWORD CANT CHANGE PASS 1 DAYS
+  shell: 'chage -m 1 {{item}}'
+  with_items: "{{sysadmins}}"
+
+- name: PASSWORD WARN DAYS 14 DAYS
+  shell: 'chage -W  14 {{item}}'
+  with_items: "{{sysadmins}}"
+
+- name: PASSWORD MIN 12 CHARACTERS
+  shell: 'authconfig --passminlen=12 --update'
+
+- name: PASSWORD MAX 3 SAME CHARACTERS CONSECUTIVE IN PASSWORD
+  shell: 'authconfig --passmaxrepeat=3 --update'
+
+- name: PASSWORD MIN 1 LOWERCASE IN PASSWORD
+  shell: 'authconfig --enablereqlower --update'
+
+- name: PASSWORD MIN 1 UPPERCASE IN PASSWORD
+  shell: 'authconfig --enablerequpper --update'
+
+- name: PASSWORD MIN 1 NUMBER IN PASSWORDD
+  shell: 'authconfig --enablereqdigit --update'
+
+- name: PASSWORD MIN 1 OTHER CHARACTER IN PASSWORD
+  shell: 'authconfig --enablereqother --update'
+
+- name: PASSWORD REMEMBER LAST 10 TIMES
+  lineinfile: 
+    dest: /etc/pam.d/system-auth
+    regexp: '^password    sufficient    pam_unix.so'
+    line: "password    sufficient    pam_unix.so md5 shadow nullok try_first_pass use_authtok remember=10" 
+    state: present

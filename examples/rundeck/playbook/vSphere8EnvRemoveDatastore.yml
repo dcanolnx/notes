@@ -1,0 +1,41 @@
+---
+- hosts: localhost
+  vars:
+    pure_hostname:      "pure.int.stratio.com"
+    pure_api:           
+    env_name:          
+
+    vcenter_hostname:   "vcenter.int.stratio.com"
+    vcenter_username:   "administrator@vsphere.local"
+    vcenter_password:   
+    vcenter_esxi_hostname:  "esx47.int.stratio.com"
+
+
+  tasks:
+  - name: Unmount VMFS {{ env_name | lower }} datastore on {{ vcenter_esxi_hostname }}
+    vmware_host_datastore:
+      hostname:         "{{ vcenter_hostname }}"
+      username:         "{{ vcenter_username }}"
+      password:         "{{ vcenter_password }}"
+      validate_certs:   no
+      datastore_name:   "{{ env_name | lower }}"
+      esxi_hostname:    "{{ vcenter_esxi_hostname }}"
+      state:            "absent"
+    delegate_to: localhost
+
+  - name: Remove volume ClusterA/{{ env_name | lower }} to ClusterA hostgroup
+    purefa_hg:
+      fa_url:           "{{ pure_hostname }}"
+      api_token:        "{{ pure_api }}"
+      hostgroup:        "ClusterA"
+      volume:           "ClusterA/{{ env_name | lower }}"
+      state:            "absent"
+    delegate_to: localhost
+
+  - name: Delete volume ClusterA/{{ env_name | lower }}
+    purefa_volume:
+      fa_url:           "{{ pure_hostname }}"
+      api_token:        "{{ pure_api }}"
+      name:             "ClusterA/{{ env_name | lower }}"
+      state:            "absent"
+    delegate_to: localhost

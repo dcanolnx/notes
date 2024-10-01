@@ -1,0 +1,14 @@
+# Configuración portgroups esxi
+- hosts: all
+  become: true
+  vars:
+    VLAN_name:
+    vSwitch: vSwitch0
+    VLAN_number:
+
+  tasks:
+    - name: Create portgroup
+      shell: esxcli network vswitch standard portgroup add -p '{{VLAN_name}}' -v '{{vSwitch}}'
+
+    - name: Configure VLAN portgroup
+      shell: esxcli network vswitch standard portgroup set -p '{{VLAN_name}}' -v '{{VLAN_number}}'

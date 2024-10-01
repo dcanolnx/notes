@@ -1,0 +1,185 @@
+---
+- name: Tester
+  hosts: localhost
+  become: false
+  gather_facts: false
+  collections: 
+    - comunity.vmware
+# pre_tasks:
+#   - include_vars: ~/github/sistemas-rundeck/ansible/group_vars/vSphere8_tester.yml
+#  vars: &default
+#    hostname:       "{{ vcenter_hostname }}"
+#    username:       "{{ vcenter_username }}"
+#    password:       "{{ vcenter_password }}"
+#    datacenter:     "{{ vcenter_datacenter }}"
+#    validate_certs: no
+#    name:           "{{ vm_name }}"
+#  tasks:
+#    - name: get VM info
+#      - vars: *default
+#      #include_vars: ~/github/sistemas-rundeck/ansible/group_vars/vSphere8_vmvarstester.yml 
+#      vmware_guest_info:
+#      networks:
+#      - name:         "Labs_{{ env_name }}"
+#        start_connected: yes
+#        connected: yes
+#      hardware:
+#        memory_mb:    "{{ hw_memtotal_mb }}"
+#        num_cpus:     "{{ hw_processor_count }}"
+#      delegate_to:      localhost
+#      register: detailed_vm_info
+#   
+#    - name: print VM info
+#      ansible.builtin.debug:
+#        var: detailed_vm_info
+  pre_tasks:
+    - include_vars: ~/github/sistemas-rundeck/ansible/group_vars/vSphere8_tester.yml
+  tasks:
+    - name: get VM info
+      local_action: 
+        module: vmware_guest_info
+        hostname:       "{{ vcenter_hostname }}"
+        username:       "{{ vcenter_username }}"
+        password:       "{{ vcenter_password }}"
+        datacenter:     "{{ vcenter_datacenter }}"
+        validate_certs: "{{ vcenter_validate_certs }}"
+        name:           "{{ vm_name }}"
+      delegate_to: localhost
+      register: vm_info
+   
+    - name: print VM info processor
+      ansible.builtin.debug:
+        #var: vm_info  
+        var: vm_info.instance.hw_processor_count
+        #vm_proc: vm_info.instance.hw_processor_count
+        #vm_memo: vm_info.instance.hw_memtotal_mb
+        #vm_name: vm_info.instance.hw_name
+        #vm_ipv4: vm_info.instance.ipv4
+  
+    - name: Get Tags from given VM Name
+      block:
+        - name: Get virtual machine info
+          local_action:
+            module: vmware_vm_info
+            hostname:       '{{ vcenter_hostname }}'
+            username:       '{{ vcenter_username }}'
+            password:       '{{ vcenter_password }}'
+            folder:         '{{ env_folder }}'
+          delegate_to: localhost
+          register: vm_info
+    
+        - debug:
+            msg: "{{ item.tags }}"
+          with_items:
+            - "{{ vm_info.virtual_machines | json_query(query) }}"
+          vars:
+            query: "[?guest_name=='DC0_H0_VM0']"
+    
+    - name: print VM`s info guest name
+      ansible.builtin.debug:
+        var: vm_info.virtual_machines[0].guest_name
+        #var: vm_info.virtual_machines[0]["guest_name"]
+        #var: vm_info
+        #loop_control:
+        #label: '{{ vm_info.virtual_machines[0].guest_name }}'
+
+    
+    #- name: Gather all registered virtual machines
+    #  vmware_vm_info:
+    #    hostname: '{{ vcenter_hostname }}'
+    #    username: '{{ vcenter_username }}'
+    #    password: '{{ vcenter_password }}'
+    #  delegate_to: localhost
+    #  register: vminfo
+#
+    #- debug:
+    #    var: vminfo.virtual_machines
+    - name: Gather all registered virtual machines
+      vmware_vm_info:
+        hostname: '{{ vcenter_hostname }}'
+        username: '{{ vcenter_username }}'
+        password: '{{ vcenter_password }}'
+      delegate_to: localhost
+      register: vminfo    
+
+    - debug:
+        var: vminfo.virtual_machines    
+
+    - name: Gather only registered virtual machine templates
+      vmware_vm_info:
+        hostname: '{{ vcenter_hostname }}'
+        username: '{{ vcenter_username }}'
+        password: '{{ vcenter_password }}'
+        vm_type: template
+      delegate_to: localhost
+      register: template_info    
+
+    - debug:
+        var: template_info.virtual_machines    
+
+    - name: Gather only registered virtual machines
+      vmware_vm_info:
+        hostname: '{{ vcenter_hostname }}'
+        username: '{{ vcenter_username }}'
+        password: '{{ vcenter_password }}'
+        vm_type: vm
+      delegate_to: localhost
+      register: vm_info    
+
+    - debug:
+        var: vm_info.virtual_machines 
+
+    
+    - name: Get UUID from given VM Name
+      block:
+        - name: Get virtual machine info
+          vmware_vm_info:
+            hostname: '{{ vcenter_hostname }}'
+            username: '{{ vcenter_username }}'
+            password: '{{ vcenter_password }}'
+            folder:   '{{ env_folder }}'
+          delegate_to: localhost
+          register: vm_info    
+
+        - debug:
+            msg: "{{ item.uuid }}"
+          with_items:
+            - "{{ vm_info.virtual_machines | json_query(query) }}"
+          vars:
+            query: "[?guest_name=='DC0_H0_VM0']"    
+
+    - name: Get Tags from given VM Name
+      block:
+        - name: Get virtual machine info
+          vmware_vm_info:
+            hostname: '{{ vcenter_hostname }}'
+            username: '{{ vcenter_username }}'
+            password: '{{ vcenter_password }}'
+            folder:   '{{ env_folder }}'
+          delegate_to: localhost
+          register: vm_info    
+
+        - debug:
+            msg: "{{ item.tags }}"
+          with_items:
+            - "{{ vm_info.virtual_machines | json_query(query) }}"
+          vars:
+            query: "[?guest_name=='DC0_H0_VM0']"
+
+    - name: Get Tags from given VM Name
+      block:
+        - name: Get virtual machine info
+          community.vmware.vmware_vm_info:
+            hostname: '{{ vcenter_hostname }}'
+            username: '{{ vcenter_username }}'
+            password: '{{ vcenter_password }}'
+            folder:   '{{ env_folder }}'
+          delegate_to: localhost
+          register: vm_info
+
+        - debug:
+            msg: "{{ item.guest_name }}"
+          with_items:
+            - "{{ vm_info.virtual_machines | community.general.json_query(query) }}"
+          vars:
+            query: "[?guest_name=='DC0_H0_VM0']"

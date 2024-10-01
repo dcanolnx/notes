@@ -1,0 +1,6 @@
+---
+## tasks file for monitor user creation 
+- hosts: all
+  gather_facts: true
+  roles:
+    - { role: monitor-users }

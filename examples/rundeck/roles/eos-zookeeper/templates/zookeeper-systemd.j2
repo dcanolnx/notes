@@ -1,0 +1,26 @@
+[Unit]
+Description=Apache {{zookeeper_servicename}} server
+
+[Service]
+Type=simple
+Restart=always
+StartLimitInterval=0
+RestartSec=5
+TimeoutSec=300
+KillMode=control-group
+Delegate=true
+SyslogIdentifier={{zookeeper_servicename}}
+LimitNOFILE=infinity
+Environment=JAVA_HOME={{java_home.stdout}}
+User={{zookeeper_user}}
+Group={{zookeeper_group}}
+
+{% if zookeeper_secure %}
+Environment=JVMFLAGS=-Djava.security.auth.login.config={{zookeeper_confdir}}/jaas.conf
+{% endif %}
+
+ExecStart={{zookeeper_home}}/bin/zkServer.sh start-foreground
+ExecStop={{zookeeper_home}}/bin/zkServer.sh stop
+
+[Install]
+WantedBy=multi-user.target

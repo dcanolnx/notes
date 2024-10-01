@@ -1,0 +1,68 @@
+---
+- hosts: all
+  become: yes
+  vars:
+    hdfs_data_dir:    /hdfs
+    # purge_hdfs_data: yes
+    # reboot_services: no
+
+    # RunDeck parameters
+    principals:       ""
+    lab_cluster:      ""
+  tasks:
+    - name: Gather kerberos realm
+      # {{ansible_fqdn}}@{{kerberos_realm}}.keytab
+      shell: >
+        grep -oP "^default_realm\ = \K\S+" /data/kerberos/kdc.conf
+      register: kubectl_realm
+      until: kubectl_realm.rc == 0
+      delay: 5
+      retries: 10
+      delegate_to: "{{ idp_host }}"
+    
+    - name: Set kerberos_realm fact
+      set_fact:
+        kerberos_realm: "{{ kubectl_realm.stdout }}"
+
+    - name: Create HDFS principals & get keytabs
+      shell: >
+        docker exec -it kerberos bash -c '
+          tmpdir=$(mktemp -p /dev/shm -t keytabs.XXX -d) && \
+          for principal in {{ principals }}; do
+            kadmin.local -q "addprinc -randkey $principal" > /dev/null 2>&1
+          done && \
+          kadmin.local -q "ktadd -k $tmpdir/{{ ansible_fqdn }}@{{ kerberos_realm }}.keytab -norandkey {{ principals }}" > /dev/null 2>&1 && \
+          keytab="$(cat $tmpdir/{{ ansible_fqdn }}@{{ kerberos_realm }}.keytab | base64 -w 0)" && \
+          rm -fr $tmpdir && \
+          echo $keytab'
+      register: kerberos_shell
+      until: kerberos_shell.rc == 0
+      delay: 5
+      retries: 10
+      delegate_to: "{{ idp_host }}"
+
+    - name: Create local user for each principal
+      vars:
+        principals_list: "{{ principals.split(' ') }}"
+      user:
+        name: "{{ item }}"
+        group: stratio
+      with_items: "{{ principals_list }}"
+      when: "'/' not in principals_list"
+
+    - name: Print PrivateBin URL
+      debug:
+        var: kerberos_shell.stdout
+
+
+    # - name: Upload secret to Privatebin
+    #   command: "/var/lib/rundeck/sistemas-rundeck/scripts/python/privatebin/UploadSecret.py {{ kerberos_shell.stdout }}"
+    #   register: privatebin_url
+    #   delegate_to: localhost
+
+    # - name: Print PrivateBin URL
+    #   vars:
+    #     urls:
+    #       Keytabs: "{{ privatebin_url.stdout }}"
+    #   debug:
+    #     var: urls

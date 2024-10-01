@@ -1,0 +1,10 @@
+---
+# tasks file for logrotate
+- name: Add logrotate config for docker
+  copy:
+    src=docker-container dest=/etc/logrotate.d/ force=no
+    mode=0644 owner=root group=root
+- name: Add better syslog config
+  copy:
+    src=syslog dest=/etc/logrotate.d/
+    mode=0644 owner=root group=root

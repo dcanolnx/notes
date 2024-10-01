@@ -1,0 +1,79 @@
+# This is the default ansible 'hosts' file.
+#
+# It should live in /etc/ansible/hosts
+#
+#   - Comments begin with the '#' character
+#   - Blank lines are ignored
+#   - Groups of hosts are delimited by [header] elements
+#   - You can enter hostnames or ip addresses
+#   - A hostname/ip can be a member of multiple groups
+localhost ansible_connection=local ansible_python_interpreter=/usr/bin/python3
+
+[ESXi_ClusterA]
+esx01a.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+esx02a.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+esx03a.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+esx04a.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+esx05a.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+esx06a.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+esx07a.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+esx08a.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+# esx09a.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+esx10a.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+esx11a.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+esx12a.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+esx13a.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+esx14a.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+esx15a.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+esx16a.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+esx17a.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+esx18a.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+esx19a.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+# esx20a.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+esx21a.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+esx22a.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+esx23a.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+esx24a.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+esx25a.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+esx26a.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+esx27a.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+esx28a.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+#esx29a.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+esx30a.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+esx31a.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+esx32a.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+esx33a.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+esx34a.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+#esx35a.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+esx36a.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+esx37a.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+esx38a.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+esx40a.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+esx41a.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+esx42a.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+esx43a.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+esx44a.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+esx45a.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+esx46a.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+esx47a.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+esx48a.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+# esx49a.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+# esx50a.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+
+
+[ESXi_ClusterB]
+esx01b.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+esx10b.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+esx11b.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+esx12b.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+esx50b.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+
+[ESXi_ClusterC]
+esx01c.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+esx02c.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+esx03c.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+esx04c.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+esx06c.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+esx07c.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+esx08c.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python
+esx09c.int.stratio.com      ansible_ssh_user=root       ansible_python_interpreter=/bin/python

@@ -1,0 +1,5 @@
+---
+# defaults file for cpufreq
+# CentOS: conservative userspace powersave ondemand performance
+# Debian: conservative ondemand userspace powersave performance schedutil
+cpu_governor: performance

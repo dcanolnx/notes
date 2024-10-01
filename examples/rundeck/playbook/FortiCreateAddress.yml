@@ -1,0 +1,17 @@
+---
+- hosts: all
+  gather_facts: False
+  vars:   
+    net_range:
+    net_name:  
+
+  tasks:
+  - name: Create Firewall Address
+    raw: |
+      config firewall address
+        edit {{ net_name }}_{{ net_range }}
+          set color 9
+          set allow-routing enable
+          set subnet {{ net_range |ipv4('network') }} {{ net_range | ipaddr('netmask') }}
+        next
+      end

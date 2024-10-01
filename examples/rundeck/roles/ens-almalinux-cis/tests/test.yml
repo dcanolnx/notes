@@ -1,0 +1,6 @@
+---
+- hosts: kubepxe
+  remote_user: hbermudez
+  become: true
+  roles:
+    - ../../ens-almalinux-cis

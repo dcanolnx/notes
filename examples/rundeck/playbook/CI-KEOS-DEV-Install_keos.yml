@@ -1,0 +1,114 @@
+---
+- hosts: CICDBOOT
+  become: true
+  vars:
+    keos_version: none
+  tasks:
+    - name: Remove old docker keos-installer if exists
+      shell: docker rm -f cicddev
+
+    - name: Check directory /root/workspaceDEV exists
+      stat:
+        path: /root/workspaceDEV
+      register: directory_details
+
+    - name: Fail if directory /root/workspaceDEV does no exist
+      fail:
+        msg: "The file or directory exists"
+      when: directory_details.stat.exists == false
+
+    - name: Check necesary files exist
+      stat:
+        path: "/root/workspaceDEV/{{ item }}"
+      register: stat_results
+      with_items:
+        - keos.config
+        - keos.yaml
+        - key
+        - secrets.yml
+      ignore_errors: true
+
+    - name: Fail if neccesary files do not exist
+      fail:
+        msg: "Necesary does not exists"
+      with_items: "{{ stat_results.results }}"
+      when: item.stat.exists == False
+
+    - name: Ansible delete multiple file example
+      file:
+        path: "/root/workspaceDEV/{{ item }}"
+        state: absent
+      with_items:
+        - credentials
+        - .keos_bash_history
+        - pki
+        - logs
+        - .kube
+
+    - name: Run keos-installer:{{keos_version}}
+      shell: |
+        docker run -td --net host \
+                   --name cicddev \
+                   -v /var/run/docker.sock:/var/run/docker.sock \
+                   -e 'VAULT_MASTER_KEY=Stratio1234' \
+                   -v /root/workspaceDEV/:/workspace \
+                   qa.int.stratio.com/stratio/keos-installer:{{ keos_version }}
+
+    - name: Run keos install
+      shell: |
+        docker exec cicddev \
+          keos install --skip-tags postinstall,postinstall-kubespray,system-services
+      register: keos_install
+      async: 7200
+      poll: 0
+      retries: 60
+
+    - name: Wait for keos install
+      async_status:
+        jid: "{{ keos_install.ansible_job_id }}"
+      register: keos_install_job
+      until: keos_install_job.finished
+      delay: 120
+      retries: 120
+
+    - name: Run keos install metrics
+      shell: |
+        docker exec cicddev \
+          keos play /stratio/ansible/playbooks/monitoring/metrics-server.yml \
+               -e @/stratio/ansible/inventory/group_vars/flavours/{{ keos_flavour }}.yml
+      register: keos_install_metrics
+      async: 7200
+      poll: 0
+      retries: 60
+      vars:
+        keos_flavour: "{{ 'development' if cluster == 'cicddev' else 'production' }}"
+
+    - name: Wait for keos install metrics
+      async_status:
+        jid: "{{ keos_install_metrics.ansible_job_id }}"
+      register: keos_install_metrics_job
+      until: keos_install_metrics_job.finished
+      delay: 120
+      retries: 120
+
+    - name: Run keos install ceph
+      shell: |
+        docker exec cicddev \
+          k create ns keos-storage; \
+          keos play /stratio/ansible/playbooks/system-services/storage/ceph.yml \
+               -e @/stratio/ansible/inventory/group_vars/flavours/{{ keos_flavour }}.yml
+      register: keos_install_ceph
+      async: 7200
+      poll: 0
+      retries: 60
+      vars:
+        keos_flavour: "{{ 'development' if cluster == 'cicddev' else 'production' }}"
+
+    - name: Wait for keos install ceph
+      async_status:
+        jid: "{{ keos_install_ceph.ansible_job_id }}"
+      register: keos_install_ceph_job
+      until: keos_install_ceph_job.finished
+      delay: 120
+      retries: 120
+

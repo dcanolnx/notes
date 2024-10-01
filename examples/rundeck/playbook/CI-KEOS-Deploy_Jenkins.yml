@@ -1,0 +1,60 @@
+---
+- hosts: localhost
+  vars:
+    jenkins_values_url: http://rundeck.int.stratio.com:8080/repos/Stratio/continuous-delivery-keos/contents/ansible/roles/keos-ci/templates/jenkins-values.yaml
+    jenkins_values_path: /var/lib/rundeck/workspace/tmp/jenkins-values.yaml
+    jenkins_vars_url: http://rundeck.int.stratio.com:8080/repos/Stratio/continuous-delivery-keos/contents/ansible/roles/keos-ci/vars/main.yaml
+    jenkins_vars_path: /var/lib/rundeck/workspace/tmp/jenkins-vars.yaml
+    kubeconfig_path: /var/lib/rundeck/workspace/CI-KEOS/config
+    jenkins_tag: none
+    namespace: none
+
+  tasks:
+    - name: Download Jenkins Values
+      get_url:
+        url: "{{ jenkins_values_url }}"
+        dest: "{{ jenkins_values_path }}"
+
+    - name: Download Jenkins Vars
+      get_url:
+        url: "{{ jenkins_vars_url }}"
+        dest: "{{ jenkins_vars_path }}"
+
+    - name: Include Jenkins Vars
+      include_vars: "{{ jenkins_vars_path }}"
+
+    - name: Change controller_tag to {{ jenkins_tag }}
+      set_fact:
+        controller_tag: "{{ jenkins_tag }}"
+
+  # - name: Remove Jenkins chart with helm
+  #   community.kubernetes.helm:
+  #     name: "jenkins"
+  #     chart_ref: jenkins/jenkins
+  #     release_namespace: "{{ namespace }}"
+  #     purge: true
+  #     release_state: absent
+  #     kubeconfig: "{{ kubeconfig_path }}"
+
+    - name: Add repository Jenkins
+      kubernetes.core.helm_repository:
+        name: jenkins
+        repo_url: "https://charts.jenkins.io"
+
+    - name: Deploy Jenkins with helm
+      kubernetes.core.helm:
+        name: "jenkins"
+        chart_ref: jenkins/jenkins
+        release_namespace: "{{ namespace }}"
+        values: "{{ lookup('template', jenkins_values_path ) | from_yaml }}"
+        wait: true
+        wait_timeout: "20m"
+        kubeconfig: "{{ kubeconfig_path }}"
+
+    - name: Delete files
+      file:
+        state: absent
+        path: "{{ item }}"
+      with_items:
+        - "{{ jenkins_values_path }}"
+        - "{{ jenkins_vars_path }}"

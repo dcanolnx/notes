@@ -1,0 +1,100 @@
+---
+- hosts: all
+  become: true
+  vars:
+    dns_subdomain: "labs"
+    dns_domain: "stratio.com"
+    env_name:
+
+  tasks:
+  - name: Setting {{env_name}} to lowercase
+    set_fact:
+      env_name_lower: "{{ env_name | lower }}"
+      env_name_check: "{{ env_name | lower }}.{{dns_subdomain}}"
+
+  - name: Read /etc/named/zones.conf to know if enviroment was added
+    shell: "cat /etc/named/zones.conf"
+    register: read_named_conf
+    when:
+      - "'helio' in inventory_hostname"
+
+  - name: Delete file /etc/named/labs.stratio.com/db.{{ env_name_lower }}.{{ dns_subdomain }}.{{ dns_domain }} on Helio
+    file:
+      path: "/etc/named/labs.stratio.com/db.{{ env_name_lower }}.{{ dns_subdomain }}.{{ dns_domain }}"
+      state: "absent"
+    when:
+      - "'helio' in inventory_hostname"
+      - "read_named_conf.stdout.find(env_name_check) != -1"
+
+  - name: Delete {{env_name_lower}} From DNS /etc/named/zones.conf
+    replace:
+      path: "/etc/named/zones.conf"
+      replace: ""
+      # regexp:       '^zone "{{ env_name_lower }}.{{ dns_subdomain }}.{{ dns_domain }}"(.*$\n)*};'
+      regexp: '^zone "{{ env_name_lower }}\.{{ dns_subdomain }}\.{{ dns_domain }}".*\n.*;\n.*;.*\n.*;\n};\n'
+    when:
+      - "'helio' in inventory_hostname"
+      - "read_named_conf.stdout.find(env_name_check) != -1"
+
+  - name: Reload named on Helio
+    systemd:
+      state: "reloaded"
+      name: "named"
+    when:
+      - "'helio' in inventory_hostname"
+      - "read_named_conf.stdout.find(env_name_check) != -1"
+
+  - name: Git add all old files and lines
+    shell: git add -A
+    args:
+      chdir: "/etc/named/"
+    when:
+      - "'helio' in inventory_hostname"
+      - "read_named_conf.stdout.find(env_name_check) != -1"
+
+  - name: Git commit -m 'Rundeck - Remove Environment {{ env_name_lower }}'
+    shell: "git commit -m 'Rundeck - Remove Environment {{ env_name_lower }}'"
+    args:
+      chdir: "/etc/named/"
+    when:
+      - "'helio' in inventory_hostname"
+      - "read_named_conf.stdout.find(env_name_check) != -1"
+
+  - name: Git push
+    shell: git push
+    args:
+      chdir: "/etc/named/"
+    when:
+      - "'helio' in inventory_hostname"
+      - "read_named_conf.stdout.find(env_name_check) != -1"
+
+  - name: Read /etc/named/zones.conf to know if enviroment was added
+    shell: "cat /etc/named/zones.conf"
+    register: read_named_conf
+    when:
+      - "'molibdeno' in inventory_hostname"
+
+  - name: Delete file /etc/named/labs.stratio.com/{{ env_name_lower }}.{{ dns_subdomain }}.{{ dns_domain }} on Molibdeno
+    file:
+      path: "/etc/named/labs.stratio.com/{{ env_name_lower }}.{{ dns_subdomain }}.{{ dns_domain }}"
+      state: "absent"
+    when:
+      - "'molibdeno' in inventory_hostname"
+      - "read_named_conf.stdout.find(env_name_check) != -1"
+
+  - name: Delete {{env_name_lower}} From DNS /etc/named/zones.conf
+    replace:
+      path: "/etc/named/zones.conf"
+      replace: ""
+      # regexp:       '^zone "{{ env_name_lower }}.{{ dns_subdomain }}.{{ dns_domain }}"(.*$\n)*};'
+      regexp: '^zone "{{ env_name_lower }}.{{ dns_subdomain }}.{{ dns_domain }}".*\n.*;\n.*;.*\n.*;\n};\n'
+    when:
+      - "'molibdeno' in inventory_hostname"
+      - "read_named_conf.stdout.find(env_name_check) != -1"
+
+  - name: Reload named on Molibdeno
+    systemd:
+      state: "reloaded"
+      name: "named"
+    when:
+      - "'molibdeno' in inventory_hostname"

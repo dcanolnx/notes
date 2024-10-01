@@ -1,0 +1,223 @@
+---
+- hosts: localhost
+  vars:
+    component_name:     "apps-sso-login"
+    docker_image:       ""
+    public_endpoint:    "login-sso.stratio.com"
+    env_java_envs:      "--spring.config.location=/data/properties/application.properties"
+    api_config:         ""
+    namespace:          "production-public"
+    keos_kubeconfig_path: "/var/lib/rundeck/workspace/EKSProductionCluster/APPSINTconfig"
+    certificate_arn:    "arn:aws:acm:eu-west-3:105054799343:certificate/12cdc8f7-5caf-45fd-a8a5-dcea942ab653" 
+
+  tasks:
+  - name: "Create {{component_name}} configmap"
+    kubernetes.core.k8s:
+      kubeconfig: "{{ keos_kubeconfig_path }}"
+      state: present
+      definition: 
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: "{{ component_name }}"
+          namespace: "{{ namespace }}"
+        data:
+          application.properties: "{{lookup('file', api_config)}}"
+    when:
+      - api_config != None
+
+  - name: "Deploy {{component_name}} deployment"
+    kubernetes.core.k8s:
+      kubeconfig: "{{ keos_kubeconfig_path }}"
+      state: present
+      definition: 
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: "{{component_name}}"
+          namespace: "{{ namespace }}"
+          labels:
+            app: "{{component_name}}"
+        spec:
+          # how many pods and indicate which strategy we want for rolling update
+          replicas: 1
+          selector:
+            matchLabels:
+              app: "{{component_name}}"
+          minReadySeconds: 10
+          template:
+            metadata:
+              namespace: "{{ namespace }}"
+              labels:
+                app: "{{component_name}}"
+            spec:
+              containers:
+                - name: "{{component_name}}"
+                  image: "{{docker_image}}"
+                  imagePullPolicy: Always
+                  ports:
+                    - containerPort: 8080
+                      name: "http"
+                    - containerPort: 8091
+                      name: "health"
+                  env:
+                    - name: JAVA_ENVIRONMENT
+                      value: "{{ env_java_envs }}"
+                  volumeMounts:
+                    - name: "{{ component_name }}"
+                      mountPath: /data/properties/
+              volumes:
+                - name: "{{ component_name }}"
+                  configMap:
+                    name: "{{ component_name }}"
+              imagePullSecrets:
+                - name: repostatiocom-secret
+
+  - name: "Deploy {{component_name}} Service"
+    kubernetes.core.k8s:
+      kubeconfig: "{{ keos_kubeconfig_path }}"
+      state: present
+      definition: 
+        kind: Service
+        apiVersion: v1
+        metadata:
+          name: "{{component_name}}"
+          namespace: "{{ namespace }}"
+        spec:
+          selector:
+            app: "{{component_name}}"
+          ports:
+          - name: "http"
+            port: 8080
+            targetPort: "http"
+            protocol: TCP
+          - name: "health"
+            port: 8091
+            targetPort: "health"
+            protocol: TCP
+          type: ClusterIP
+
+  - name: "Deploy {{component_name}} Ingress"
+    kubernetes.core.k8s:
+      kubeconfig: "{{ keos_kubeconfig_path }}"
+      state: present
+      definition:
+        apiVersion: networking.k8s.io/v1
+        kind: Ingress
+        metadata:
+          name: "{{component_name}}"
+          namespace: "{{ namespace }}"
+          annotations:
+            alb.ingress.kubernetes.io/load-balancer-name: "eks-{{component_name}}"
+            alb.ingress.kubernetes.io/certificate-arn: "{{certificate_arn}}"
+            alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS":443}]'
+            alb.ingress.kubernetes.io/scheme: "{% if namespace == 'preproduction' %}internal{% else %}internet-facing{% endif %}"
+            alb.ingress.kubernetes.io/ssl-redirect: '443'
+            alb.ingress.kubernetes.io/target-type: ip
+            alb.ingress.kubernetes.io/success-codes: '200-499'
+        spec:
+          ingressClassName: alb
+          rules:
+            - host: "{{public_endpoint}}"
+              http:
+                paths:
+                  - path: /
+                    pathType: Prefix
+                    backend:
+                      service:
+                        name: "{{component_name}}"
+                        port:
+                          number: 8080
+                  - path: /health
+                    pathType: Prefix
+                    backend:
+                      service:
+                        name: "{{component_name}}"
+                        port:
+                          number: 8091
+                        
+
+  - name: Wait until ingress is ready
+    pause:
+      seconds : 10
+
+  - name: "Get {{component_name}} ingress AWS internal Load Balancer"
+    kubernetes.core.k8s_info:
+      kubeconfig: "{{ keos_kubeconfig_path }}"
+      api_version: v1
+      kind: Ingress
+      name: "{{component_name}}"
+      namespace: "{{ namespace }}"
+    register: kube_prom_web
+
+  - name: Wait until ALB is ready
+    wait_for:
+      host: "{{ kube_prom_web.resources[0].status.loadBalancer.ingress[0].hostname }}"
+      port: 443
+      delay: 10
+      state: started
+
+  - name: "Update {{component_name}} with AWS internal Load Balancer"
+    kubernetes.core.k8s:
+      kubeconfig: "{{ keos_kubeconfig_path }}"
+      state: present
+      definition:
+        apiVersion: networking.k8s.io/v1
+        kind: Ingress
+        metadata:
+          name: "{{component_name}}"
+          namespace: "{{ namespace }}"
+          annotations:
+            alb.ingress.kubernetes.io/load-balancer-name: "eks-{{component_name}}"
+            alb.ingress.kubernetes.io/certificate-arn: "{{certificate_arn}}"
+            alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS":443}]'
+            alb.ingress.kubernetes.io/scheme: "{% if namespace == 'preproduction' %}internal{% else %}internet-facing{% endif %}"
+            alb.ingress.kubernetes.io/ssl-redirect: '443'
+            alb.ingress.kubernetes.io/target-type: ip
+            alb.ingress.kubernetes.io/success-codes: '200-499'
+        spec:
+          ingressClassName: alb
+          rules:
+            - host: "{{public_endpoint}}"
+              http:
+                paths:
+                  - path: /
+                    pathType: Prefix
+                    backend:
+                      service:
+                        name: "{{component_name}}"
+                        port:
+                          number: 8080
+                  - path: /health
+                    pathType: Prefix
+                    backend:
+                      service:
+                        name: "{{component_name}}"
+                        port:
+                          number: 8091
+            - host: "{{ kube_prom_web.resources[0].status.loadBalancer.ingress[0].hostname }}"
+              http:
+                paths:
+                  - path: /
+                    pathType: Prefix
+                    backend:
+                      service:
+                        name: "{{component_name}}"
+                        port:
+                          number: 8080
+                  - path: /health
+                    pathType: Prefix
+                    backend:
+                      service:
+                        name: "{{component_name}}"
+                        port:
+                          number: 8091
+
+  - name: Print ALB endpoints URLs
+    vars:
+      urls:
+        stratio_web: 
+          - "{{public_endpoint}}"
+        aws_endpoint: "https://{{ kube_prom_web.resources[0].status.loadBalancer.ingress[0].hostname }}"
+    debug:
+      var: urls

@@ -1,0 +1,20 @@
+---
+# tasks file for stratian-users-htz
+
+- name: CREATE josemanueldiaz USERS
+  user: name=josemanueldiaz createhome=yes append=yes shell=/bin/bash state=present
+
+- name: CREATE USERS' SSH FOLDER
+  file:
+   owner=josemanueldiaz
+   group=josemanueldiaz
+   path=/home/josemanueldiaz/.ssh
+   state=directory
+
+- name: INCLUDE USERS' PUBLIC RSA
+  copy: content='ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDTwjtsz09wZisSsf7+zWOCzh177YwL370xAIN6T20B4dvu4kb2jM97gKQ0d3+SLVrkQlMGKS54PP1zS0YfOnGciL947YXY06kqmyDEpECaPUqIkLcEaIwifzpGh3pD4zR/svgsHRKSrd11y2q3GAcCUPCxaaM0LhotuRF27HukHVHR6LgYdXejCbWJM4/jJEQPlxrURadUy30pIESLB3ci+VvC+E5rO+A3ZJc/8VtbVcmf7yDQkHCUgBh/zM152B4gzoyifsXYHD5xjCIH0JRePu+EHPLqvyL0cTaRf+G/bzeJqhtD5l0FYTr//IwBxt9sfnBx8vx3Wx67+5+Tt+GrDFRvJCDsnL9Th6uCQi/Yn8rUnIrCcIbkalJNca9nJ3dZIAWRPsYcuNPrYmh+YjNqAVy59hOIWfCDQGHG3Vj+3mUkhRd9rwUaUu4faYM4l+VEV8r8SFnyz9p38ZXQDYjyFTqoqEBx75uk5zEXp5IoifcXuhFP4RPc4g59aaF3tIBA0Xlbwg71fpX6ld4ht2OtS7iDmK6Aq6XCf/YB7WvIw/G91kK9wQKS7e+zW1zaKf2dsNDZ9L+bjUrAWd7OIOkFQqYdV76anwKamOOHTnzR8VNZqn4W4E166jOfyG1el2Mz9xf1jj4u/IjqiiR3dHJ4HXnxh9rvmFdNbXhoOU2U1w== josemanueldiaz@stratio.com' dest='/home/josemanueldiaz/.ssh/authorized_keys' owner=josemanueldiaz group=josemanueldiaz force='yes'
+
+- name: ADDING USERS' SUDOERS PERMISIONS
+  lineinfile: dest=/etc/sudoers line='josemanueldiaz ALL=(ALL:ALL) NOPASSWD:ALL' owner=root group=root mode=0440 validate='visudo -cf %s'
+
+

@@ -1,0 +1,73 @@
+---
+- hosts: orgon
+  gather_facts: False
+  vars:
+    env_vlan:   
+    env_name:   
+    env_range:  
+
+  tasks:
+  - name: Create BGP Config
+    raw: |
+      config router bgp
+        config neighbor-group
+          edit "{{ env_name }}-peers"
+            set soft-reconfiguration enable
+            set interface "Labs_{{ env_vlan }}"
+            set prefix-list-in "BGP-Labs-Rule"
+            set remote-as 64512
+          next
+        end
+        config neighbor-range
+          edit {{ env_vlan }}
+            set prefix {{ env_range |ipv4('network') }} {{ env_range | ipaddr('netmask') }}
+            set neighbor-group "{{ env_name }}-peers"
+          next
+        end
+      end
+    when: "'orgon' in inventory_hostname"
+
+  - name: Create Firewall Rules
+    raw: |
+      config firewall policy
+        edit 0
+          set name "VPN SSL Emp to Labs {{ env_name }}-KEOS"
+          set srcintf "port3"
+          set dstintf "Labs_{{ env_vlan }}"
+          set srcaddr "Net_VPN-SSL_Employees_10.110.0.0/22"
+          set dstaddr "Net_Labs_KEOS_10.202.0.0/16"
+          set action accept
+          set schedule "always"
+          set service "ALL"
+          set profile-protocol-options "Default Stratio"
+          set ssl-ssh-profile "stratio-certificate-inspection"
+          set logtraffic all
+        next
+        edit 0
+          set name "Molibdeno to Labs {{ env_name }}-KEOS"
+          set srcintf "Servers_902"
+          set dstintf "Labs_{{ env_vlan }}"
+          set srcaddr "IP_Production_Molibdeno_10.120.0.42" "IP_Production_Helio_10.120.0.2"
+          set dstaddr "Net_Labs_KEOS_10.202.0.0/16"
+          set action accept
+          set schedule "always"
+          set service "DNS"
+          set profile-protocol-options "Default Stratio"
+          set ssl-ssh-profile "stratio-certificate-inspection"
+          set logtraffic all
+        next
+        edit 0
+          set name "CICD to Labs {{ env_name }}-KEOS"
+          set srcintf "Pro_CICD_909"
+          set dstintf "Labs_{{ env_vlan }}"
+          set srcaddr "Net_Production_CICD_10.120.14.0/24" 
+          set dstaddr "Net_Labs_KEOS_10.202.0.0/16"
+          set action accept
+          set schedule "always"
+          set service "ALL"
+          set profile-protocol-options "Default Stratio"
+          set ssl-ssh-profile "stratio-certificate-inspection"
+          set logtraffic all
+        next  
+      end
+    when: "'orgon' in inventory_hostname"

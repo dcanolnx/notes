@@ -1,0 +1,14 @@
+---
+- hosts: all
+  gather_facts: true
+  become: true
+  vars:
+    rootlogin: yes
+    bootstrap_ip: "{{ hostvars[inventory_hostname]['ansible_default_ipv4']['address'] }}"
+  roles:
+   - { role: libvirt-snapshot-test, when: "'hetzner' in inventory_hostname and step == 'libvirt-snapshot' and skip != true"}
+   - { role: genpass-test, when: "'bootstrap' in inventory_hostname and step == 'genpass' and skip != true" }
+   - { role: root-pass-rundeck-test, when: "'hetzner' not in inventory_hostname and step == 'root-pass' and skip != true" }
+   - { role: eos-reinstall-test, when: "'bootstrap' in inventory_hostname and step == 'eos-reinstall'" }
+#   - { role: post-install-actions, when: "'hetzner' not in group_names }
+

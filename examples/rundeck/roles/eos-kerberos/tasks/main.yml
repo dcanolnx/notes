@@ -1,0 +1,119 @@
+- name: Link /dev/random to /dev/urandom
+  file:
+    path: /dev/random
+    src: /dev/urandom
+    state: link
+    force: yes
+
+- name: Install packages
+  yum:
+    name: "{{ krb_pkg }}"
+    state: latest
+
+- name: Create kerberos secrets folder
+  file:
+    path: "{{ kerberos_secrets_folder }}"
+    state: directory
+    mode: 0700
+
+- name: Get service facts
+  service_facts:
+
+- name: Create kerberos scripts folder
+  file:
+    path: "{{ kerberos_scripts_folder }}"
+    state: directory
+    mode: 0700
+
+- name: Copy script to check remote LDAP
+  template:
+    src: check_remote_ldap.sh.j2
+    dest: "{{ kerberos_scripts_folder }}/check_remote_ldap.sh"
+    mode: 0700
+
+- name: Update krb5kdc service unit
+  template:
+    src: krb5kdc.service.j2
+    dest: /usr/lib/systemd/system/krb5kdc.service
+  notify: Restart master krb5kdc service
+
+- name: Update kadmin service unit
+  template:
+    src: kadmin.service.j2
+    dest: /usr/lib/systemd/system/kadmin.service
+  notify: Restart master kadmin service
+
+- name: Copy kdc configuration file
+  template:
+    src: kdc.conf.j2
+    dest: "{{ kdc_conf_path }}"
+  notify: Restart master krb5kdc service
+
+- name: Copy kadmin acl configuration file
+  template:
+    src: kadm5.acl.j2
+    dest: "{{ kadm5_acl_path }}"
+  notify: Restart master kadmin service
+
+- name: Copy client configuration file
+  template:
+    src: krb5.conf.j2
+    dest: /etc/krb5.conf
+  notify: Restart master krb5kdc service
+
+- name: Copy kdc password file
+  template:
+    src: kdc.secret.j2
+    dest: "{{ kerberos_secrets_folder }}/kdc.secret"
+  notify: Restart master krb5kdc service
+
+- name: Copy krbadmin password file
+  template:
+    src: krbadmin.secret.j2
+    dest: "{{ kerberos_secrets_folder }}/krbadmin.secret"
+  notify: Restart master krb5kdc service
+
+- name: Check if Realm is created
+  shell: "/usr/sbin/kdb5_ldap_util -D uid={{ kerberos_admin_user }},{{ ou_ldap }} list -r {{ realm_name|upper() }} -s -P $(cat {{ kerberos_secrets_folder }}/kdc.secret) -w $(cat {{ kerberos_secrets_folder }}/krbadmin.secret)"
+  register: krb_realm_check
+  changed_when: no
+
+- name: Set fact for creating REALM
+  set_fact:
+    create_krb_realm: "{{ realm_name | upper not in krb_realm_check.stdout }}"
+
+- name: Create REALM subtree
+  shell: "/usr/sbin/kdb5_ldap_util -D uid={{ kerberos_admin_user }},{{ ou_ldap }} create -subtrees ou=Groups,{{ ldap_base_dn }}:ou=People,{{ ldap_base_dn }} -r {{ realm_name | upper }} -s -P $(cat {{ kerberos_secrets_folder }}/kdc.secret) -w $(cat {{ kerberos_secrets_folder }}/krbadmin.secret)"
+  when:
+    - create_krb_realm | bool
+
+- name: Check if keyfile is created
+  stat:
+    path: "{{ kerberos_secrets_folder }}/stash.keyfile"
+  register: keyfile_stat
+
+- name: Copy of key to link kadmin to LDAP
+  shell: echo -e "{{ kerberos_admin_pass }}\n{{ kerberos_admin_pass  }}"|/usr/sbin/kdb5_ldap_util -D cn={{ ldap_admin_user }},{{ ldap_base_dn }} -w {{ ldap_admin_pass }} -f {{ kerberos_secrets_folder }}/stash.keyfile stashsrvpw uid={{ kerberos_admin_user }},ou=People,{{ ldap_base_dn }}
+  when:
+    - not keyfile_stat.stat.exists
+
+- name: Copy of key to link kdc to LDAP
+  shell: echo -e "{{ kerberos_kdc_pass }}\n{{ kerberos_kdc_pass }}"|/usr/sbin/kdb5_ldap_util -D cn={{ ldap_admin_user }},{{ ldap_base_dn }} -w {{ ldap_admin_pass }}  -f {{ kerberos_secrets_folder }}/stash.keyfile stashsrvpw uid={{ kerberos_kdc_user }},ou=People,{{ ldap_base_dn }}
+  when:
+    - not keyfile_stat.stat.exists
+
+- name: Start master kdc service
+  systemd:
+    name: krb5kdc
+    state: started
+    daemon_reload: yes
+    enabled: yes
+  register: kdc_start_master
+
+- name: Start master kadmin service
+  systemd:
+    name: kadmin
+    state: started
+    daemon_reload: yes
+    enabled: yes
+  register: kadmin_start_master

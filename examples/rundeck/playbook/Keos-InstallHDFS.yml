@@ -1,0 +1,240 @@
+---
+- hosts: all
+  become: yes
+  vars:
+    hdfs_data_dir:    /hdfs
+    # purge_hdfs_data: yes
+    # reboot_services: no
+    hdfs_configmap: /tmp/hdfs.configmap
+    keos_version_new_idp: 0.6
+    keos_version_new_new_idp: 0.7
+    external_kerberos: eosofflineregistry.labs.stratio.com
+    kerberize_nfs: true
+
+    # RunDeck parameters
+    lab_cluster: ""
+    use_external_kerberos: ""
+    nfs_sec: ""
+  tasks:
+    - name: Download kubectl and kubeconfig
+      vars:
+        kubectl_version: v1.20.7
+        kubectl_download_url: https://storage.googleapis.com/kubernetes-release/release/{{ kubectl_version }}/bin/linux/amd64/kubectl
+        keos_workspaces: http://keos-workspaces.int.stratio.com/keos-workspace-{{ lab_cluster }}.tgz
+      shell: >
+        curl -sS -L {{ kubectl_download_url }} --output /tmp/kubectl > /dev/null 2>&1 && \
+        chmod +x /tmp/kubectl && \
+        curl -sS "{{ keos_workspaces }}" | tar xvz -C /tmp keos-workspace-{{ lab_cluster }}/.kube/config > /dev/null 2>&1 && \
+        mv /tmp/keos-workspace-{{ lab_cluster }}/.kube/config /tmp/kubeconfig && \
+        rm -fr /tmp/keos-workspace-{{ lab_cluster }}
+      register: kubectl
+      until: kubectl.rc == 0
+      delay: 5
+      retries: 10
+      delegate_to: localhost
+
+    - name: Gather KEOS < version
+      shell: >
+        /tmp/kubectl --kubeconfig='/tmp/kubeconfig' exec -it -n keos-ops deployment/keos-operator -c keos-operator -- bash -c "source /stratio/scripts/variables.sh ; echo \$VERSION"
+      register: keos_current_version
+      until: keos_current_version.rc == 0
+      delay: 5
+      retries: 10
+      delegate_to: localhost
+      when:
+        - not use_external_kerberos | bool
+
+    - debug:
+        var: keos_current_version
+
+    - name: Gather kerberos realm KEOS < {{ keos_version_new_idp }}
+      shell: >
+        /tmp/kubectl --kubeconfig='/tmp/kubeconfig' -n keos-idp get cm idp -o jsonpath="{['data']['realm_name']}"
+      register: kubectl_realm_1
+      until: kubectl_realm_1.rc == 0
+      delay: 5
+      retries: 10
+      delegate_to: localhost
+      when:
+        - not use_external_kerberos | bool
+        - keos_current_version.stdout is version(keos_version_new_idp,'<')
+
+    - name: Gather kerberos realm KEOS >= {{ keos_version_new_idp }}
+      shell: >
+        /tmp/kubectl --kubeconfig='/tmp/kubeconfig' -n keos-idp get cm kerberos -o jsonpath="{['data']['realm_name']}"
+      register: kubectl_realm_2
+      until: kubectl_realm_2.rc == 0
+      delay: 5
+      retries: 10
+      delegate_to: localhost
+      when:
+        - not use_external_kerberos | bool
+        - keos_current_version.stdout is version(keos_version_new_idp,'>=')
+
+    - name: Gather external kerberos realm
+      shell: >
+        ssh -tttt {{ external_kerberos }} \
+          sudo docker exec -it kerberos.service bash -c \
+            '"echo -n \$realm_name"'
+      register: kubectl_realm_external
+      until: kubectl_realm_external.rc == 0
+      delay: 5
+      retries: 10
+      delegate_to: localhost
+      become: no
+      when:
+        - use_external_kerberos | bool
+
+    - name: Gather domain
+      shell: |
+        domain=$(/tmp/kubectl --kubeconfig='/tmp/kubeconfig' -n keos-ops get keos.keos.stratio.com keos -o jsonpath="{['spec']['keos']['external_domain']}")
+        domain=${domain:-"$(/tmp/kubectl --kubeconfig='/tmp/kubeconfig' -n keos-ops get cm idp -o jsonpath="{['data']['domain']}")"}
+        echo $domain
+      register: kubectl_domain
+      until: kubectl_domain.rc == 0
+      delay: 5
+      retries: 10
+      delegate_to: localhost
+      when:
+        - not use_external_kerberos | bool
+
+    - debug:
+        var: kubectl_domain
+      delegate_to: localhost
+
+    - name: Set kerberos realm fact KEOS < {{ keos_version_new_idp }}
+      set_fact:
+        realm_name: "{{ kubectl_realm_1.stdout }}"
+      when:
+        - not use_external_kerberos | bool
+        - keos_current_version.stdout is version(keos_version_new_idp,'<')
+
+    - name: Set kerberos realm fact KEOS >= {{ keos_version_new_idp }}
+      set_fact:
+        realm_name: "{{ kubectl_realm_2.stdout }}"
+      when:
+        - not use_external_kerberos | bool
+        - keos_current_version.stdout is version(keos_version_new_idp,'>=')
+
+    - name: Set kerberos realm fact KEOS < {{ keos_version_new_new_idp }}
+      set_fact:
+        kerberos_fqdn: "kerberos-lb.keos-idp.{{ kubectl_domain.stdout }}"
+      when:
+        - not use_external_kerberos | bool
+        - keos_current_version.stdout is version(keos_version_new_new_idp,'<')
+
+    - name: Set kerberos realm fact KEOS >= {{ keos_version_new_new_idp }}
+      set_fact:
+        kerberos_fqdn: "kerberos.keos-idp.{{ kubectl_domain.stdout }}"
+      when:
+        - not use_external_kerberos | bool
+        - keos_current_version.stdout is version(keos_version_new_new_idp,'>=')
+
+    - name: Set external kerberos realm fact
+      set_fact:
+        realm_name: "{{ kubectl_realm_external.stdout }}"
+        kerberos_fqdn: "{{ external_kerberos }}"
+      when:
+        - use_external_kerberos | bool
+
+    - debug:
+        var: "{{ item }}"
+      loop:
+        - kerberos_fqdn
+        - realm_name
+      delegate_to: localhost
+
+    - name: Create HDFS principals & get keytabs
+      shell: >
+        /tmp/kubectl --kubeconfig='/tmp/kubeconfig' -n keos-idp exec -it kerberos-0 -c kerberos -- bash -c '
+          tmpdir=$(mktemp -p /dev/shm -t keytabs.XXX -d) && \
+          hdfs_principals="hdfs/{{ ansible_fqdn }} HTTP/{{ ansible_fqdn }}"
+          for principal in $hdfs_principals; do
+            kadmin.local -q "addprinc -randkey $principal" > /dev/null 2>&1
+          done && \
+          kadmin.local -q "ktadd -k $tmpdir/{{ ansible_fqdn }}@{{ realm_name }}.keytab -norandkey $hdfs_principals" > /dev/null 2>&1 && \
+          keytab="$(cat $tmpdir/{{ ansible_fqdn }}@{{ realm_name }}.keytab | base64 -w 0)" && \
+          rm -fr $tmpdir && \
+          echo $keytab'
+      register: kerberos_shell_KEOS
+      until: kerberos_shell_KEOS.rc == 0
+      delay: 5
+      retries: 10
+      delegate_to: localhost
+      when:
+        - not use_external_kerberos | bool
+
+    - name: Create NFS principals & get keytabs (external kerberos)
+      shell: >
+        ssh -tttt {{ external_kerberos }} sudo docker exec -it kerberos.service bash -c '"
+          tmpdir=\$(mktemp -p /dev/shm -t keytabs.XXX -d) &&
+          hdfs_principals=\"hdfs/{{ ansible_fqdn }} HTTP/{{ ansible_fqdn }}\";
+          for principal in \$hdfs_principals; do
+            kadmin.local -q \"addprinc -randkey \$principal\" > /dev/null 2>&1;
+          done &&
+          kadmin.local -q \"ktadd -k \$tmpdir/{{ ansible_fqdn }}@{{ realm_name }}.keytab -norandkey \$hdfs_principals\" > /dev/null 2>&1 &&
+          keytab=\"\$(cat \$tmpdir/{{ ansible_fqdn }}@{{ realm_name }}.keytab | base64 -w 0)\" &&
+          rm -fr \$tmpdir &&
+          echo \$keytab"'
+      register: kerberos_shell_docker
+      until: kerberos_shell_docker.rc == 0
+      delay: 5
+      retries: 10
+      delegate_to: localhost
+      become: no
+      when:
+        - use_external_kerberos | bool
+
+    - debug:
+        var: kerberos_shell_docker
+
+    - name: Copy HDFS keytabs
+      copy:
+        content: "{{ kerberos_shell_KEOS.stdout | b64decode }}"
+        dest: "/tmp/{{ realm_name }}.keytab"
+      when:
+        - not use_external_kerberos | bool
+
+    - name: Copy HDFS keytabs External
+      copy:
+        content: "{{ kerberos_shell_docker.stdout | b64decode }}"
+        dest: "/tmp/{{ realm_name }}.keytab"
+      when:
+        - use_external_kerberos | bool
+
+    - name: Install HDFS standalone
+      vars:
+        kerberos_fqdn: "{{ kerberos_fqdn }}"
+      import_role:
+        name: keos-hdfs-standalone
+
+    - name: Install NFS
+      vars:
+        nfs_fqdn: "{{ ansible_fqdn }}"
+      import_role:
+        name: keos-nfs
+
+    - name: Generate HDFS configuration k8s ConfigMaps
+      vars:
+        dest: "{{ hdfs_configmap }}"
+      import_role:
+        name: keos-hdfs-standalone
+        tasks_from: generate-configmaps
+
+    - name: Apply HDFS ConfigMap to KEOS
+      shell: >
+        /tmp/kubectl --kubeconfig='/tmp/kubeconfig' apply -f {{ hdfs_configmap }}
+      register: kubectl
+      until: kubectl.rc == 0
+      delay: 5
+      retries: 10
+      delegate_to: localhost
+
+    - name: Purge kubectl & kubeconfig
+      file:
+        path: "/tmp/{{ item }}"
+        state: absent
+      loop:
+        - kubectl
+        - kubeconfig
+      delegate_to: localhost

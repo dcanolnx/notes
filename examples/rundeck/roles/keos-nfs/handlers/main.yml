@@ -1,0 +1,3 @@
+- name: Export shared files
+  shell: exportfs -a
+  when: start_nfs is not changed

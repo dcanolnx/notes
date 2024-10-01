@@ -1,0 +1,21 @@
+[Unit]
+Description=Kerberos 5 KDC
+Wants=network-online.target
+After=syslog.target network.target network-online.target
+{%- if ansible_facts.services['slapd.service'] is defined and ansible_facts.services['slapd.service'].status == "enabled" %} slapd.service
+Wants=slapd.service
+{% endif %}
+
+[Service]
+Type=forking
+PIDFile=/var/run/krb5kdc.pid
+EnvironmentFile=-/etc/sysconfig/krb5kdc
+ExecStartPre=/usr/bin/timeout {{ ldap_access_timeout }} {{ kerberos_scripts_folder }}/check_remote_ldap.sh
+ExecStart=/usr/sbin/krb5kdc -P /var/run/krb5kdc.pid $KRB5KDC_ARGS
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+StartLimitInterval=120s
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

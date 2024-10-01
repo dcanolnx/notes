@@ -1,0 +1,22 @@
+---
+- hosts: localhost
+  vars:
+    pure_hostname:    "pure.int.stratio.com"
+    pure_api:         
+    env_name:         
+    
+
+  tasks:
+  - name: Get Volumens from Pure
+    purefa_info:
+      fa_url:           "{{ pure_hostname }}"
+      api_token:        "{{ pure_api }}"
+      gather_subset:    "volumes"
+    register: info
+    delegate_to: localhost
+
+  - fail:
+      msg: The environment {{ env_name }} already exists
+    with_items: "{{ info.purefa_info.volumes }}"
+    when:  env_name|lower in item|lower 
+ 

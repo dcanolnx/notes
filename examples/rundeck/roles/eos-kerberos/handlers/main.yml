@@ -1,0 +1,33 @@
+- name: Restart master krb5kdc service
+  systemd:
+    name: krb5kdc
+    state: restarted
+    daemon_reload: yes
+    enabled: yes
+  when: kdc_start_master is not changed
+
+- name: Restart master kadmin service
+  systemd:
+    name: kadmin
+    state: restarted
+    daemon_reload: yes
+    enabled: yes
+  when: kadmin_start_master is not changed
+
+- name: Restart kerberos slave services
+  systemd:
+    name: "{{ item }}"
+    state: started
+    daemon_reload: yes
+    enabled: yes
+  register: kerberos_start_slave
+  with_items:
+    - krb5kdc
+    - kadmin
+  when: kerberos_start_slave is not changed
+
+- name: Restart docker-kerberos service
+  systemd:
+    name: docker-kerberos
+    state: started
+    enabled: yes

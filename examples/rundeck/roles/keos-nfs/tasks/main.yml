@@ -1,0 +1,236 @@
+- name: Install needed NFS packages
+  yum:
+    name:
+      - nfs-utils
+      - krb5-workstation
+      - python3
+    state: latest
+
+- name: Disable firewalld
+  systemd:
+    name: firewalld
+    enabled: no
+    state: stopped
+
+- name: Get service facts
+  service_facts:
+
+- name: Copy krb5 Configuration file
+  template:
+    src: krb5.conf.j2
+    dest: /etc/krb5.conf
+  when:
+    - kerberize_nfs | bool
+    - krb_server_type == "mit"
+    - nfs_sec == "krb5" or nfs_sec == "krb5i" or nfs_sec == "krb5p"
+    - ansible_facts.services['krb5kdc.service'] is not defined
+
+- name: Gather KEOS version
+  shell: >
+    /bin/kubectl --kubeconfig='/tmp/kubeconfig' exec -it -n keos-ops deployment/keos-operator -c keos-operator -- bash -c "source /stratio/scripts/variables.sh ; echo \$VERSION"
+  register: keos_current_version
+  until: keos_current_version.rc == 0
+  delay: 5
+  retries: 10
+  delegate_to: localhost
+  when:
+    - kerberize_nfs | bool
+    - not use_external_kerberos | bool
+- debug:
+    var: keos_current_version
+  when:
+    - kerberize_nfs | bool
+
+- name: Create NFS principals & get keytabs < {{ keos_version_idp_operator }}
+  shell: >
+    /bin/kubectl --kubeconfig='/tmp/kubeconfig' -n keos-idp exec -it kerberos-0 -c kerberos -- bash -c '
+      tmpdir=$(mktemp -p /dev/shm -t keytabs.XXX -d) && \
+      nfs_principals="nfs/{{ ansible_fqdn }}"
+      for principal in $nfs_principals; do
+        kadmin.local -q "addprinc -randkey $principal" > /dev/null 2>&1
+      done && \
+      kadmin.local -q "ktadd -k $tmpdir/{{ ansible_fqdn }}@{{ realm_name }}.keytab -norandkey $nfs_principals" > /dev/null 2>&1 && \
+      keytab="$(cat $tmpdir/{{ ansible_fqdn }}@{{ realm_name }}.keytab | base64 -w 0)" && \
+      rm -fr $tmpdir && \
+      echo $keytab'
+  register: kerberos_shell_kubelow
+  until: kerberos_shell_kubelow.rc == 0
+  delay: 5
+  retries: 10
+  delegate_to: localhost
+  when:
+    - kerberize_nfs | bool
+    - not use_external_kerberos | bool
+    - keos_current_version.stdout|default() is version(keos_version_idp_operator,'<')
+
+- name: Create NFS principals & get keytabs >= {{ keos_version_idp_operator }}
+  shell: >
+    /bin/kubectl --kubeconfig='/tmp/kubeconfig' -n keos-idp exec -it kerberos-idp-0 -c kerberos -- bash -c '
+      tmpdir=$(mktemp -p /dev/shm -t keytabs.XXX -d) && \
+      nfs_principals="nfs/{{ ansible_fqdn }}"
+      for principal in $nfs_principals; do
+        kadmin.local -q "addprinc -randkey $principal" > /dev/null 2>&1
+      done && \
+      kadmin.local -q "ktadd -k $tmpdir/{{ ansible_fqdn }}@{{ realm_name }}.keytab -norandkey $nfs_principals" > /dev/null 2>&1 && \
+      keytab="$(cat $tmpdir/{{ ansible_fqdn }}@{{ realm_name }}.keytab | base64 -w 0)" && \
+      rm -fr $tmpdir && \
+      echo $keytab'
+  register: kerberos_shell_kubeupper
+  until: kerberos_shell_kubeupper.rc == 0
+  delay: 5
+  retries: 10
+  delegate_to: localhost
+  when:
+    - kerberize_nfs | bool
+    - not use_external_kerberos | bool
+    - keos_current_version.stdout|default() is version(keos_version_idp_operator,'>=')
+    
+- name: Create NFS principals & get keytabs (external kerberos)
+  shell: >
+    ssh -tttt {{ external_kerberos }} sudo docker exec -it kerberos.service bash -c '"
+      tmpdir=\$(mktemp -p /dev/shm -t keytabs.XXX -d) &&
+      nfs_principals=\"nfs/{{ ansible_fqdn }}\";
+      for principal in \$nfs_principals; do
+        kadmin.local -q \"addprinc -randkey \$principal\" > /dev/null 2>&1;
+      done &&
+      kadmin.local -q \"ktadd -k \$tmpdir/{{ ansible_fqdn }}@{{ realm_name }}.keytab -norandkey \$nfs_principals\" > /dev/null 2>&1 &&
+      keytab=\"\$(cat \$tmpdir/{{ ansible_fqdn }}@{{ realm_name }}.keytab | base64 -w 0)\" &&
+      rm -fr \$tmpdir &&
+      echo \$keytab"'
+  register: kerberos_shell_docker
+  until: kerberos_shell_docker.rc == 0
+  delay: 5
+  retries: 10
+  delegate_to: localhost
+  become: no
+  when:
+    - kerberize_nfs | bool
+    - use_external_kerberos | bool
+
+- name: Copy NFS keytabs KEOS
+  copy:
+    content: "{{ kerberos_shell_kubelow.stdout | b64decode }}"
+    dest: "/etc/krb5.keytab"
+  when:
+    - kerberize_nfs | bool
+    - not use_external_kerberos | bool
+    - keos_current_version.stdout|default() is version(keos_version_idp_operator,'<')
+
+- name: Copy NFS keytabs KEOS
+  copy:
+    content: "{{ kerberos_shell_kubeupper.stdout | b64decode }}"
+    dest: "/etc/krb5.keytab"
+  when:
+    - kerberize_nfs | bool
+    - not use_external_kerberos | bool
+    - keos_current_version.stdout|default() is version(keos_version_idp_operator,'>=')
+
+- name: Copy NFS keytabs Docker
+  copy:
+    content: "{{ kerberos_shell_docker.stdout | b64decode }}"
+    dest: "/etc/krb5.keytab"
+  when:
+    - kerberize_nfs | bool
+    - use_external_kerberos | bool
+
+- name: Create intelligence group
+  group:
+    name: intelligence
+    state: present
+    system: no
+  register: create_intelligence_group
+
+- set_fact:
+    nfs_intelligence_gid: "{{ create_intelligence_group.gid }}"
+
+- name: Create user intelligence
+  user:
+    name: intelligence
+    group: intelligence
+    state: present
+  register: create_intelligence_user
+
+- set_fact:
+    nfs_intelligence_uid: "{{ create_intelligence_user.uid }}"
+
+- name: Check for disk mounted on {{ additional_disk_mountpoint }}
+  shell: mountpoint -q "{{ additional_disk_mountpoint }}"
+  failed_when:
+    - not 'rc' in additional_disk
+    - additional_disk.rc != 0
+    - additional_disk.rc != 1
+  register: additional_disk
+
+- name: Create storage folders
+  file:
+    path: "{{ item }}"
+    state: directory
+  loop:
+    - "{{ nfs_intelligence_folder }}"
+    - "{{ nfs_keos_folder }}"
+    - "{{ nfs_minio_folder }}"
+
+- name: Create storage folders
+  file:
+    path: "{{ item }}"
+    state: directory
+  loop:
+    - "{{ additional_disk_mountpoint }}/NFS/intelligence"
+    - "{{ additional_disk_mountpoint }}/NFS/keos"
+    - "{{ additional_disk_mountpoint }}/NFS/minio"
+  when:
+    - additional_disk.rc == 0
+
+- name: Mount and bind {{ additional_disk_mountpoint }}/NFS/intelligence on {{ nfs_intelligence_folder }}
+  mount:
+    path: "{{ nfs_intelligence_folder }}"
+    src: "{{ additional_disk_mountpoint }}/NFS/intelligence"
+    opts: bind
+    state: mounted
+    fstype: none
+  when:
+    - additional_disk.rc == 0
+
+- name: Mount and bind {{ additional_disk_mountpoint }}/NFS/keos on {{ nfs_keos_folder }}
+  mount:
+    path: "{{ nfs_keos_folder }}"
+    src: "{{ additional_disk_mountpoint }}/NFS/keos"
+    opts: bind
+    state: mounted
+    fstype: none
+  when:
+    - additional_disk.rc == 0
+
+- name: Mount and bind {{ additional_disk_mountpoint }}/NFS/minio on {{ nfs_minio_folder }}
+  mount:
+    path: "{{ nfs_minio_folder }}"
+    src: "{{ additional_disk_mountpoint }}/NFS/minio"
+    opts: bind
+    state: mounted
+    fstype: none
+  when:
+    - additional_disk.rc == 0
+
+- name: Set intelligence shared folder permissions
+  file:
+    path: "{{ nfs_intelligence_folder }}"
+    state: directory
+    mode: 0755
+    owner: intelligence
+    recurse: yes
+
+- name: Copy exports file
+  template: src=exports.j2 dest=/etc/exports
+  notify: Export shared files
+
+- name: Copy nfs configuration file
+  template: src=nfs.j2 dest=/etc/sysconfig/nfs
+  notify: Export shared files
+
+- name: Start nfs service
+  systemd:
+    daemon_reload: yes
+    name: "{{ nfs_main_service }}"
+    state: restarted
+    enabled: yes
+  register: start_nfs

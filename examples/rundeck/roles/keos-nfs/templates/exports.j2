@@ -1,0 +1,11 @@
+{% if kerberize_nfs | bool %}
+{{ nfs_intelligence_folder }} *(rw,sync,insecure,nohide,no_subtree_check,anonuid={{ nfs_intelligence_uid }},anongid={{ nfs_intelligence_gid }},sec={{ nfs_sec }})
+{% else %}
+{{ nfs_intelligence_folder }} *(rw,sync,insecure,nohide,no_subtree_check,anonuid={{ nfs_intelligence_uid }},anongid={{ nfs_intelligence_gid }})
+{% endif %}
+{% if kerberize_nfs | bool %}
+{{ nfs_keos_folder }} *(rw,sync,insecure,nohide,no_subtree_check,anonuid=0,anongid=0,sec={{ nfs_sec }})
+{% else %}
+{{ nfs_keos_folder }} *(rw,sync,insecure,nohide,no_subtree_check,anonuid=0,anongid=0)
+{% endif %}
+{{ nfs_minio_folder }} *(rw,sync,insecure,nohide,no_subtree_check,anonuid=0,anongid=0)

@@ -1,0 +1,18 @@
+---
+# tasks file for libvirt-snapshot
+## Restore
+- name: Include vars
+  include_vars: 
+    file: "{{ entorno }}"
+
+- name: Restore Snapshot Virtual Machines
+  include_tasks: restore_snapshot_jump.yml
+  with_dict: "{{ nodes }}"
+  loop_control:
+    loop_var: line_item
+  when: 
+    - ansible_hostname == line_item.key
+    - restore
+
+# - pause:
+#     minutes: "{{ wait_time }}"

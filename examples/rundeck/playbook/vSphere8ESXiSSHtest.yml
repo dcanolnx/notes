@@ -1,0 +1,15 @@
+# Configuración portgroups esxi
+- hosts: all
+  become: true
+  vars:
+    env_name:
+    vSwitch: vSwitch0
+    VLAN_number:
+
+  tasks:
+    - name: show version
+      shell: esxcli system version get
+      register: salida
+
+    - name: print
+      debug: var=salida

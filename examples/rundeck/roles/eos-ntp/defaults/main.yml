@@ -1,0 +1,7 @@
+---
+# defaults file for ntp
+
+timezone: "Europe/Madrid"
+# NTP Server is galio.int.stratio.com
+ntp_servers:
+    - 10.120.0.31

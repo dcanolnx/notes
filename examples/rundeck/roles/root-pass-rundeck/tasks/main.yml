@@ -1,0 +1,19 @@
+---
+- name: "Read root password"
+  local_action: shell cat /tmp/pass 
+  register: pass
+  run_once: true
+  become: no
+       
+- name: "Print root password"
+  debug: msg="New root password ----> {{pass.stdout}} <----"
+
+- name: "Change root password"
+  user: name=root password={{ pass.stdout | password_hash('sha512', 'stratio') }}
+
+- name: "Copy password to /root/pls-dont-rm"
+  copy: content={{pass.stdout}} dest=/root/pls-dont-rm
+
+- name: "Enable root login"
+  lineinfile: dest=/etc/ssh/sshd_config regexp='^PermitRootLogin' line="PermitRootLogin without-password" state=absent  
+

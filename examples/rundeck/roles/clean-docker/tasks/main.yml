@@ -1,0 +1,10 @@
+---
+# tasks file
+
+- name: Purge docker dangling things
+  ansible.builtin.cron:
+    name: "docker danglings"
+    user: "root"
+    minute: "0"
+    hour: "2"
+    job: "docker container prune -f && docker image prune -f > /dev/null 2>&1"

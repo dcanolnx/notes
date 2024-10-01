@@ -1,0 +1,24 @@
+---
+- name: Create HDFS principals & get keytabs
+  # {{ansible_fqdn}}@{{kerberos_realm}}.keytab
+  command: >
+    bash -c "
+      tmpdir=$(mktemp -p /dev/shm -t keytabs.XXX -d) && \
+      hdfs_principals=\"{{ principals }}\"
+      for principal in $hdfs_principals; do
+        kadmin.local -q \"addprinc -randkey $principal\" > /dev/null 2>&1
+      done && \
+      kadmin.local -q \"ktadd -k $tmpdir/{{ ansible_fqdn }}@{{ kerberos_realm }}.keytab -norandkey $hdfs_principals\" > /dev/null 2>&1 && \
+      keytab=\"$(cat "$tmpdir/{{ ansible_fqdn }}@{{ kerberos_realm }}.keytab" | base64 | tr -d '\n')\" && \
+      rm -fr $tmpdir && \
+      echo $keytab"
+  register: kerberos_shell
+  until: kerberos_shell.rc == 0
+  delay: 5
+  retries: 10
+  delegate_to: "{{ idp_host }}"
+
+- name: Copy HDFS keytabs
+  copy:
+    content: "{{ kerberos_shell.stdout | b64decode }}"
+    dest: "{{ dest }}"

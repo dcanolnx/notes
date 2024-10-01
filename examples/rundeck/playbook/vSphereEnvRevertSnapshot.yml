@@ -1,0 +1,34 @@
+---
+- hosts: localhost
+  vars:
+    vcenter_hostname: "fluor.int.stratio.com"
+    vcenter_username: "administrator@vsphere.local"
+    vcenter_password:
+    datacenter:       "Stratio.com"
+    env_name:      
+    parent_folder:    "Pool"   
+      
+  tasks:
+    - name: Get vms from /{{ datacenter }}/vm/{{ parent_folder }}/{{ env_name }}
+      vmware_vm_info:
+        hostname:         "{{ vcenter_hostname }}"
+        username:         "{{ vcenter_username }}"
+        password:         "{{ vcenter_password }}"
+        folder:           "/{{ datacenter }}/vm/{{ parent_folder }}/{{ env_name }}"
+        validate_certs:   no
+      delegate_to: localhost
+      register: vcenter_folder_info
+ 
+    - name: Revert all snapshots 
+      vmware_guest_snapshot:
+        hostname:         "{{ vcenter_hostname }}"
+        username:         "{{ vcenter_username }}"
+        password:         "{{ vcenter_password }}"
+        validate_certs:   no
+        datacenter:       "{{ datacenter }}"
+        folder:           "/{{ datacenter }}/vm/{{ parent_folder }}/{{ env_name }}"
+        name:             "{{ item.guest_name }}"
+        state:            revert
+        snapshot_name:    "Inicial"
+      delegate_to: localhost
+      with_items: "{{ vcenter_folder_info.virtual_machines }}"

@@ -1,0 +1,141 @@
+---
+- name: Create idp folders
+  file:
+    path: "{{ item }}"
+    state: directory
+  with_items:
+    - "{{ idp_data_dir }}/secrets"
+    - "{{ idp_data_dir }}/kerberos"
+
+- name: Create IDP certs
+  import_role:
+    name: eos-pki
+    tasks_from: gencert
+  vars:
+    cn: "{{ fqdn }}"
+    extended_key_usage: serverAuth
+  delegate_to: localhost
+  become: no
+
+- name: Copy certs & CA
+  copy:
+    content: "{{ item.content }}"
+    dest: "{{ item.path }}"
+    mode: 0640
+  no_log: yes
+  with_items:
+    - { content: "{{ gencert_result.cert }}", path: "{{ idp_data_dir }}/secrets/cert.crt" }
+    - { content: "{{ gencert_result.key }}", path: "{{ idp_data_dir }}/secrets/cert.key" }
+    - { content: "{{ gencert_result.ca }}", path: "{{ idp_data_dir }}/secrets/ca.crt" }
+
+- name: Remove old docker packages
+  vars:
+    old_docker_packages:
+      - docker
+      - docker-client
+      - docker-client-latest
+      - docker-common
+      - docker-latest
+      - docker-latest-logrotate
+      - docker-logrotate
+      - docker-engine
+  yum:
+    name: "{% for package in old_docker_packages %}{{ package }}{% if not loop.last %},{% endif %}{% endfor %}"
+    state: absent
+
+- name: Add docker-ce repository
+  yum_repository:
+    name: docker-ce
+    description: Docker CE Stable - $basearch
+    baseurl: https://download.docker.com/linux/centos/$releasever/$basearch/stable
+    enabled: true
+    gpgcheck: true
+    gpgkey: https://download.docker.com/linux/centos/gpg
+
+- name: Install docker packages
+  vars:
+    docker_packages:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - python3-pip
+      - python-docker-py
+  yum:
+    name: "{% for package in docker_packages %}{{ package }}{% if not loop.last %},{% endif %}{% endfor %}"
+    state: latest
+
+- name: Enable & start docker service
+  service:
+    name: docker
+    state: started
+    enabled: yes
+
+- name: Start LDAP container
+  docker_container:
+    name: ldap
+    hostname: "{{ fqdn }}"
+    restart_policy: unless-stopped
+    detach: yes
+    interactive: no
+    auto_remove: no
+    image: qa.stratio.com/stratio/ldap-idp-k8s:0.1.0-M6
+    state: started
+    pull: no
+    volumes:
+      - "{{ idp_data_dir }}/secrets:/opt/ldap/secrets"
+      - "{{ idp_data_dir }}:/data"
+    ports:
+      - 636:636
+      - 389:389
+    env:
+      email_domain: "{{ email_domain }}"
+      ldap_base_dn: "{{ ldap_base_dn }}"
+      ldap_admin_user: "{{ ldap_admin_user }}"
+      ldap_admin_pass: "{{ ldap_admin_pass }}"
+      keos_admin_user: "{{ keos_admin_user }}"
+      keos_admin_pass: "{{ keos_admin_pass }}"
+      ldap_read_user: "{{ ldap_read_user }}"
+      ldap_read_pass: "{{ ldap_read_pass }}"
+      kerberos_kdc_user: "{{ kerberos_kdc_user }}"
+      kerberos_kdc_pass: "{{ kerberos_kdc_pass }}"
+      kerberos_admin_user: "{{ kerberos_admin_user }}"
+      kerberos_admin_pass: "{{ kerberos_admin_pass }}"
+
+- name: Get LDAP container info
+  docker_container_info:
+    name: ldap
+  register: ldap_container
+
+- name: Start Kerberos container
+  docker_container:
+    name: kerberos
+    hostname: "{{ fqdn }}"
+    restart_policy: unless-stopped
+    detach: yes
+    interactive: no
+    auto_remove: no
+    image: qa.stratio.com/stratio/kerberos-idp-k8s:0.1.0-M6
+    state: started
+    pull: no
+    etc_hosts: '{ "{{ fqdn }}": "{{ ldap_container.container.NetworkSettings.IPAddress }}" }'
+    volumes:
+      - "{{ idp_data_dir }}/secrets:/opt/kerberos/secrets"
+      - "{{ idp_data_dir }}/kerberos:/var/kerberos/krb5kdc"
+    ports:
+      - 88:88
+      - 88:88/udp
+      - 749:749
+      - 749:749/udp
+    env:
+      ldap_url: "ldap://{{ fqdn }}"
+      realm_name: "{{ realm_name }}"
+      ldap_admin_user: "{{ ldap_admin_user }}"
+      ldap_admin_pass: "{{ ldap_admin_pass }}"
+      ldap_base_dn: "{{ ldap_base_dn }}"
+      ou_people: "{{ ou_people }}"
+      ou_groups: "{{ ou_groups }}"
+      kerberos_kdc_user: "{{ kerberos_kdc_user }}"
+      kerberos_kdc_pass: "{{ kerberos_kdc_pass }}"
+      kerberos_admin_user: "{{ kerberos_admin_user }}"
+      kerberos_admin_pass: "{{ kerberos_admin_pass }}"
+      ldap_kerberos_container_dn: "{{ ldap_kerberos_container_dn }}"

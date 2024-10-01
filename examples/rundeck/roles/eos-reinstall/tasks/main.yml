@@ -1,0 +1,99 @@
+- name: "Install python-docker-py"
+  package: name=python-docker-py state=present
+  
+- name: "Remove old paas-bootstrap"
+  docker_container: name=paas-bootstrap state=absent
+  
+- name: "Rm mesos_sec"
+  file: name=/stratio_volume/mesos_sec.json state=absent
+
+- name: "Rm vault_roles"
+  file: name=/stratio_volume/vault_roles state=absent
+
+- name: "debug"
+  debug: var=eos_version.split('-')[1]
+
+- name: "Change descriptor.json schemaVersion"
+  lineinfile: state=present dest=/stratio_volume/descriptor.json regexp="schemaVersion" line="schemaVersion":"{{ eos_version }}", backup=yes
+  when: "eos_version.split('-')[1] is undefined"
+  
+- name: "Change descriptor.json schemaVersion"
+  lineinfile: state=present dest=/stratio_volume/descriptor.json regexp="schemaVersion" line="schemaVersion":"{{ eos_version.split("-")[0] }}", backup=yes
+#  lineinfile: state=present dest=/stratio_volume/descriptor.json regexp="schemaVersion" line="schemaVersion":"{{ eos_version }}", backup=yes
+  when: "eos_version.split('-')[1] is defined"
+
+#- name: "Change ntp"
+# lineinfile: state=present dest=/stratio_volume/descriptor.json regexp="0.centos.pool.ntp.org" line="95.216.68.54", 
+
+#- name: "Replace ntp"
+#  replace: path=/stratio_volume/descriptor.json regexp="0.centos.pool.ntp.org" replace="95.216.68.54"
+
+- name: "Run new paas-bootstrap"
+  docker_container: 
+    name: paas-bootstrap
+    state: started
+    interactive: yes
+    image: qa.stratio.com/stratio/eos-installer:{{ eos_version }}
+    ports: 
+      - "8888:8888"
+      - "8080:8080"
+      - "8081:8081"
+      - "80:80"
+    env: HOST_IP={{ hostvars[inventory_hostname]['ansible_default_ipv4']['address'] }}
+    volumes: 
+      - /stratio_volume:/stratio_volume
+      - /var/run/docker.sock:/var/run/docker.sock
+
+- name: install krb5-workstation
+  package: name=krb5-workstation state=present
+
+- name: "Read kerberos principal"
+  shell: "klist -kt /stratio_volume/eos-admin.keytab  | tail -1 | awk '{print $4}' | cut -d '@' -f1"
+  register: krb_princ
+
+- name: Debug krb
+  debug: var=krb_princ.stdout
+
+- name: "Run dcos-deployer 0.22.X"
+  shell: "docker exec -it paas-bootstrap dcos-deployer install-cluster --securize --kerberos_principal {{ krb_princ.stdout }} --clean_pending --deploy_cct "
+  when: 
+    - eos_version.split('.')[0] == '0'
+    - eos_version.split('.')[1] == '22'
+
+- name: "Run dcos-deployer 0.19.X"
+  shell: "docker exec -it paas-bootstrap dcos-deployer install-cluster --securize --kerberos_principal {{ krb_princ.stdout }} --clean_pending "
+  when: 
+    - eos_version.split('.')[0] == '0'
+    - eos_version.split('.')[1] == '19'
+
+- name: "Run dcos-deployer 1.1.X"
+  shell: "docker exec -it paas-bootstrap dcos-deployer install-cluster --kerberos_principal {{ krb_princ.stdout }} --deploy_cct --clean_pending"
+  when:
+    - eos_version.split('.')[0] == '1' 
+    - eos_version.split('.')[1] == '1'
+
+- name: "Run eos-deployer 1.2.X"
+  #shell: "docker exec -it paas-bootstrap eos-deployer install-cluster --kerberos_principal {{ krb_princ.stdout }} --deploy_cct --clean_pending"
+  shell: "docker exec -it paas-bootstrap eos-deployer install-cluster --kerberos_principal {{ krb_princ.stdout }} --deploy_cct"
+  when: 
+    - eos_version.split('.')[0] == '1'    
+    - eos_version.split('.')[1] == '2'
+
+- name: "Run eos-deployer 1.3.X"
+  shell: "docker exec -it paas-bootstrap eos-deployer install-cluster --kerberos_principal {{ krb_princ.stdout }} --deploy_cct"
+  when:
+    - eos_version.split('.')[0] == '1'
+    - eos_version.split('.')[1] == '3'  
+
+- name: "Run eos-deployer 1.4.X"
+  shell: "docker exec -it paas-bootstrap eos-deployer install-cluster --kerberos_principal {{ krb_princ.stdout }} --deploy_cct"
+  when:
+    - eos_version.split('.')[0] == '1'
+    - eos_version.split('.')[1] == '4'
+
+
+- name: "Run eos-deployer 1.5.X"
+  shell: "docker exec -it paas-bootstrap eos-deployer install-cluster --kerberos_principal {{ krb_princ.stdout }} --deploy_cct"
+  when:
+    - eos_version.split('.')[0] == '1'
+    - eos_version.split('.')[1] == '5'  

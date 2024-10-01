@@ -1,0 +1,196 @@
+---
+- hosts: all
+  become: yes
+  vars:
+    keos_version_new_idp: 0.6
+    keos_version_new_new_idp: 0.7
+    keos_version_idp_operator: 1.1
+    external_kerberos: eosofflineregistry.labs.stratio.com
+
+    # RunDeck parameters
+    env: ""
+    kerberize_nfs: ""
+    use_external_kerberos: ""
+    nfs_sec: ""
+  tasks:
+    - name: Download kubectl and kubeconfig
+      vars:
+        kubectl_version: v1.20.7
+        kubectl_download_url: https://storage.googleapis.com/kubernetes-release/release/{{ kubectl_version }}/bin/linux/amd64/kubectl
+        keos_workspaces: http://keos-workspaces.int.stratio.com/keos-workspace-{{ env }}.tgz
+      shell: >
+        curl -sS -L {{ kubectl_download_url }} --output /bin/kubectl > /dev/null 2>&1 || \
+        chmod +x /bin/kubectl && \
+        curl -sS "{{ keos_workspaces }}" | tar xvz -C /tmp keos-workspace-{{ env }}/.kube/config > /dev/null 2>&1 && \
+        mv /tmp/keos-workspace-{{ env }}/.kube/config /tmp/kubeconfig && \
+        rm -fr /tmp/keos-workspace-{{ env }}
+      register: kubectl
+      until: kubectl.rc == 0
+      delay: 5
+      retries: 10
+      delegate_to: localhost
+      when:
+        - kerberize_nfs | bool
+        - not use_external_kerberos | bool
+
+    - name: Gather KEOS version
+      shell: >
+        /bin/kubectl --kubeconfig='/tmp/kubeconfig' exec -it -n keos-ops deployment/keos-operator -c keos-operator -- bash -c "source /stratio/scripts/variables.sh ; echo \$VERSION"
+      register: keos_current_version
+      until: keos_current_version.rc == 0
+      delay: 5
+      retries: 10
+      delegate_to: localhost
+      when:
+        - kerberize_nfs | bool
+        - not use_external_kerberos | bool
+
+    - debug:
+        var: keos_current_version
+      when:
+        - kerberize_nfs | bool
+    # For 0.6
+    - name: Gather kerberos realm KEOS < {{ keos_version_new_idp }}
+      shell: >
+        /bin/kubectl --kubeconfig='/tmp/kubeconfig' -n keos-idp get cm idp -o jsonpath="{['data']['realm_name']}"
+      register: kubectl_realm_1
+      until: kubectl_realm_1.rc == 0
+      delay: 5
+      retries: 10
+      delegate_to: localhost
+      when:
+        - kerberize_nfs | bool
+        - not use_external_kerberos | bool
+        - keos_current_version.stdout|default() is version(keos_version_new_idp,'<')
+    # For 0.7
+    - name: Gather kerberos realm KEOS >= {{ keos_version_new_idp }}
+      shell: >
+        /bin/kubectl --kubeconfig='/tmp/kubeconfig' -n keos-idp get cm kerberos -o jsonpath="{['data']['realm_name']}"
+      register: kubectl_realm_2
+      until: kubectl_realm_2.rc == 0
+      delay: 5
+      retries: 10
+      delegate_to: localhost
+      when:
+        - kerberize_nfs | bool
+        - not use_external_kerberos | bool
+        - keos_current_version.stdout|default() is version(keos_version_new_idp,'>=')
+        - keos_current_version.stdout|default() is version(keos_version_idp_operator,'<')
+    # For 1.1
+    - name: Gather kerberos realm KEOS >= {{ keos_version_idp_operator }}
+      shell: >
+        /bin/kubectl --kubeconfig='/tmp/kubeconfig' -n keos-idp get cm kerberos-idp -o jsonpath="{['data']['realm_name']}"
+      register: kubectl_realm_3
+      until: kubectl_realm_3.rc == 0
+      delay: 5
+      retries: 10
+      delegate_to: localhost
+      when:
+        - kerberize_nfs | bool
+        - not use_external_kerberos | bool
+        - keos_current_version.stdout|default() is version(keos_version_idp_operator,'>=')
+
+    - name: Gather external kerberos realm
+      shell: >
+        ssh -tttt {{ external_kerberos }} \
+          sudo docker exec -it kerberos.service bash -c \
+            '"echo -n \$realm_name"'
+      register: kubectl_realm_external
+      until: kubectl_realm_external.rc == 0
+      delay: 5
+      retries: 10
+      delegate_to: localhost
+      become: no
+      when:
+        - kerberize_nfs | bool
+        - use_external_kerberos | bool
+
+    - name: Gather domain
+      shell: |
+        domain=$(/bin/kubectl --kubeconfig='/tmp/kubeconfig' -n keos-ops get keos.keos.stratio.com keos -o jsonpath="{['spec']['keos']['external_domain']}")
+        domain=${domain:-"$(/bin/kubectl --kubeconfig='/tmp/kubeconfig' -n keos-ops get cm idp -o jsonpath="{['data']['domain']}")"}
+        echo $domain
+      register: kubectl_domain
+      until: kubectl_domain.rc == 0
+      delay: 5
+      retries: 10
+      delegate_to: localhost
+      when:
+        - kerberize_nfs | bool
+        - not use_external_kerberos | bool
+    # For 0.6
+    - name: Set kerberos realm fact KEOS < {{ keos_version_new_idp }}
+      set_fact:
+        realm_name: "{{ kubectl_realm_1.stdout }}"
+      when:
+        - kerberize_nfs | bool
+        - not use_external_kerberos | bool
+        - keos_current_version.stdout|default() is version(keos_version_new_idp,'<')
+    # For 0.7
+    - name: Set kerberos realm fact KEOS >= {{ keos_version_new_idp }}
+      set_fact:
+        realm_name: "{{ kubectl_realm_2.stdout }}"
+      when:
+        - kerberize_nfs | bool
+        - not use_external_kerberos | bool
+        - keos_current_version.stdout|default() is version(keos_version_new_idp,'>=')
+        - keos_current_version.stdout|default() is version(keos_version_idp_operator,'<')
+    # For 1.1
+    - name: Set kerberos realm fact KEOS >= {{ keos_version_idp_operator }}
+      set_fact:
+        realm_name: "{{ kubectl_realm_3.stdout }}"
+      when:
+        - kerberize_nfs | bool
+        - not use_external_kerberos | bool
+        - keos_current_version.stdout|default() is version(keos_version_idp_operator,'>=')
+       
+    - name: Set external kerberos realm fact
+      set_fact:
+        realm_name: "{{ kubectl_realm_external.stdout }}"
+        kerberos_fqdn: "{{ external_kerberos }}"
+      when:
+        - kerberize_nfs | bool
+        - use_external_kerberos | bool
+    # For less 0.7    
+    - name: Set kerberos realm fact KEOS < {{ keos_version_new_new_idp }}
+      set_fact:
+        kerberos_fqdn: "kerberos-lb.keos-idp.{{ kubectl_domain.stdout }}"
+      when:
+        - kerberize_nfs | bool
+        - not use_external_kerberos | bool
+        - keos_current_version.stdout|default() is version(keos_version_new_new_idp,'<')
+    # For 0.7 and more
+    - name: Set kerberos realm fact KEOS >= {{ keos_version_new_new_idp }}
+      set_fact:
+        kerberos_fqdn: "kerberos.keos-idp.{{ kubectl_domain.stdout }}"
+      when:
+        - kerberize_nfs | bool
+        - not use_external_kerberos | bool
+        - keos_current_version.stdout|default() is version(keos_version_new_new_idp,'>=')
+
+    - debug:
+        var: "{{ item }}"
+      loop:
+        - kerberos_fqdn
+        - realm_name
+      delegate_to: localhost
+      when:
+        - kerberize_nfs | bool
+
+    - name: Install NFS
+      vars:
+        nfs_fqdn: "{{ ansible_fqdn }}"
+      import_role:
+        name: keos-nfs
+
+    - name: Purge kubectl & kubeconfig
+      file:
+        path: "/tmp/{{ item }}"
+        state: absent
+      loop:
+        - kubectl
+        - kubeconfig
+      delegate_to: localhost
+      when:
+        - kerberize_nfs | bool
+

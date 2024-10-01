@@ -1,0 +1,19 @@
+---
+# handlers file for zookeeper
+- name: start zookeeper
+  service:
+    name: "{{zookeeper_servicename}}"
+    state: started
+    enabled: yes
+
+- name: restart zookeeper
+  service:
+    name: "{{zookeeper_servicename}}"
+    state: restarted
+    enabled: yes
+
+- name: restart firewalld
+  service:
+    name: firewalld
+    state: restarted
+    enabled: yes

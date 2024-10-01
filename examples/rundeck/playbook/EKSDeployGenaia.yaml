@@ -1,0 +1,176 @@
+---
+- hosts: localhost
+  vars:
+    web_image_tag:      ""
+    namespace:          "production"
+    keos_kubeconfig_path: "/var/lib/rundeck/workspace/EKSProductionCluster/APPSINTconfig"
+    certificate_arn:    "arn:aws:acm:eu-west-3:105054799343:certificate/312d36d2-c015-4bf3-8a91-3349e4ea8d7e" 
+
+  tasks:
+
+  - name: Deploy Genaida Web deployment
+    kubernetes.core.k8s:
+      kubeconfig: "{{ keos_kubeconfig_path }}"
+      state: present
+      definition: 
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: "genaia-web"
+          namespace: "{{ namespace }}-public"
+          labels:
+            app: "genaia-web"
+        spec:
+          # how many pods and indicate which strategy we want for rolling update
+          replicas: 1
+          selector:
+            matchLabels:
+              app: "genaia-web"
+          minReadySeconds: 10
+          template:
+            metadata:
+              namespace: "{{ namespace }}-public"
+              labels:
+                app: "genaia-web"
+            spec:
+              containers:
+                - name: genaia-web
+                  image: stratio-releases.repo.stratio.com/stratio/genaia-public-web:{{web_image_tag}}
+                  imagePullPolicy: Always
+                  ports:
+                    - containerPort: 80
+                      name: "genaia-web"
+              imagePullSecrets:
+                - name: repostatiocom-secret
+
+  - name: Deploy Stratio Web Service
+    kubernetes.core.k8s:
+      kubeconfig: "{{ keos_kubeconfig_path }}"
+      state: present
+      definition: 
+        kind: Service
+        apiVersion: v1
+        metadata:
+          name: "genaia-web"
+          namespace: "{{ namespace }}-public"
+        spec:
+          selector:
+            app: "genaia-web"
+          ports:
+          - name: "genaia-web"
+            port: 80
+            targetPort: "genaia-web"
+            protocol: TCP
+          type: ClusterIP
+
+  - name: Deploy Stratio Web Ingress
+    kubernetes.core.k8s:
+      kubeconfig: "{{ keos_kubeconfig_path }}"
+      state: present
+      definition:
+        apiVersion: networking.k8s.io/v1
+        kind: Ingress
+        metadata:
+          name: "genaia-web"
+          namespace: "{{ namespace }}-public"
+          annotations:
+            alb.ingress.kubernetes.io/load-balancer-name: "eks-{{ namespace }}-public-web"
+            alb.ingress.kubernetes.io/certificate-arn: "{{certificate_arn}}"
+            alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS":443}]'
+            alb.ingress.kubernetes.io/scheme: internet-facing
+            alb.ingress.kubernetes.io/ssl-redirect: '443'
+            alb.ingress.kubernetes.io/target-type: ip
+        spec:
+          ingressClassName: alb
+          rules:
+            - host: "stratio.com"
+              http:
+                paths:
+                  - path: /
+                    pathType: Prefix
+                    backend:
+                      service:
+                        name: "genaia-web"
+                        port:
+                          number: 80
+
+  - name: Wait until ingress is ready
+    pause:
+      seconds : 10
+
+  - name: Get Stratio web ingress AWS internal Load Balancer
+    kubernetes.core.k8s_info:
+      kubeconfig: "{{ keos_kubeconfig_path }}"
+      api_version: v1
+      kind: Ingress
+      name: "genaia-web"
+      namespace: "{{ namespace }}-public"
+    register: kube_prom_web
+
+  - name: Wait until ALB is ready
+    wait_for:
+      host: "{{ kube_prom_web.resources[0].status.loadBalancer.ingress[0].hostname }}"
+      port: 443
+      delay: 10
+      state: started
+
+  - name: Update Stratio Ingress with AWS internal Load Balancer
+    kubernetes.core.k8s:
+      kubeconfig: "{{ keos_kubeconfig_path }}"
+      state: present
+      definition:
+        apiVersion: networking.k8s.io/v1
+        kind: Ingress
+        metadata:
+          name: "genaia-web"
+          namespace: "{{ namespace }}-public"
+          annotations:
+            alb.ingress.kubernetes.io/load-balancer-name: "eks-{{ namespace }}-public-web"
+            alb.ingress.kubernetes.io/certificate-arn: "{{certificate_arn}}"
+            alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS":443}]'
+            alb.ingress.kubernetes.io/scheme: internet-facing
+            alb.ingress.kubernetes.io/ssl-redirect: '443'
+            alb.ingress.kubernetes.io/target-type: ip
+        spec:
+          ingressClassName: alb
+          rules:
+            - host: "generativeaiassociation.org"
+              http:
+                paths:
+                  - path: /
+                    pathType: Prefix
+                    backend:
+                      service:
+                        name: "genaia-web"
+                        port:
+                          number: 80
+            - host: "www.generativeaiassociation.org"
+              http:
+                paths:
+                  - path: /
+                    pathType: Prefix
+                    backend:
+                      service:
+                        name: "genaia-web"
+                        port:
+                          number: 80
+            - host: "{{ kube_prom_web.resources[0].status.loadBalancer.ingress[0].hostname }}"
+              http:
+                paths:
+                  - path: /
+                    pathType: Prefix
+                    backend:
+                      service:
+                        name: "genaia-web"
+                        port:
+                          number: 80
+
+  - name: Print ALB endpoints URLs
+    vars:
+      urls:
+        stratio_web: 
+          - "https://www.generativeaiassociation.org"
+          - "https://generativeaiassociation.org"
+        aws_endpoint: "https://{{ kube_prom_web.resources[0].status.loadBalancer.ingress[0].hostname }}"
+    debug:
+      var: urls

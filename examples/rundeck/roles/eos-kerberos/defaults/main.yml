@@ -1,0 +1,29 @@
+---
+krb_pkg:
+  - libselinux-python
+  - krb5-libs
+  - krb5-server
+  - krb5-workstation
+  - krb5-pkinit-openssl
+  - ntp
+  - krb5-server-ldap.x86_64
+
+krb_service:
+  - krb5kdc
+  - kadmin
+
+kdc_conf_path: /var/kerberos/krb5kdc/kdc.conf
+kadm5_acl_path: /var/kerberos/krb5kdc/kadm5.acl
+
+kdc_port: 88
+ou_ldap: "ou=People,{{ ldap_base_dn }}"
+ldap_port: 636
+ldap_access_timeout: 5
+kerberos_home: /opt/kerberos
+kerberos_data_folder: "{{ kerberos_home }}/data"
+kerberos_secrets_folder: "{{ kerberos_home }}/secrets"
+kerberos_scripts_folder: "{{ kerberos_home }}/scripts"
+ppass_user: install/admin
+ppass_password: stratio
+keytab: "{{ dest.split(\"/\") | last }}"
+keytabs_path: /opt/stratio/keytabs

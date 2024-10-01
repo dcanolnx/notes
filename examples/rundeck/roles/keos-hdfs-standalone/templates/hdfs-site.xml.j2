@@ -1,0 +1,139 @@
+<configuration>
+  <property>
+    <name>dfs.namenode.name.dir</name>
+    <value>{{ dfs_namenode_name_dir }}</value>
+  </property>
+  <property>
+    <name>dfs.datanode.data.dir</name>
+    <value>{{ dfs_datanode_data_dir }}</value>
+  </property>
+  <property>
+    <name>dfs.permissions.enabled</name>
+    <value>{{ dfs_permissions }}</value>
+  </property>
+  <property>
+    <name>dfs.replication</name>
+    <value>1</value>
+  </property>
+<!-- Namenode -->
+  <property>
+    <name>dfs.block.access.token.enable</name>
+    <value>{{ hadoop_security_authentication == "kerberos" }}</value>
+  </property>
+  <property>
+    <name>dfs.http.policy</name>
+    <value>{% if hadoop_security_authentication == "kerberos" %}HTTPS_ONLY{% else %}HTTP_ONLY{% endif %}</value>
+  </property>
+{% if hadoop_security_authentication == "kerberos" %}
+  <property>
+    <name>dfs.namenode.keytab.file</name>
+    <value>{{ hadoop_secrets_dir }}/{{ realm_name }}.keytab</value>
+  </property>
+  <property>
+    <name>dfs.namenode.kerberos.principal</name>
+    <value>hdfs/{{ansible_fqdn}}@{{ realm_name }}</value>
+  </property>
+  <property>
+    <name>dfs.namenode.kerberos.internal.spnego.principal</name>
+    <value>HTTP/{{ansible_fqdn}}@{{ realm_name }}</value>
+  </property>
+  <property>
+    <name>dfs.namenode.kerberos.internal.spnego.keytab</name>
+    <value>{{ hadoop_secrets_dir }}/{{ realm_name }}.keytab</value>
+  </property>
+  <property>
+    <name>dfs.secondary.namenode.keytab.file</name>
+    <value>{{ hadoop_secrets_dir }}/{{ realm_name }}.keytab</value>
+  </property>
+  <property>
+    <name>dfs.secondary.namenode.kerberos.principal</name>
+    <value>hdfs/{{ansible_fqdn}}@{{ realm_name }}</value>
+  </property>
+  <property>
+    <name>dfs.secondary.namenode.kerberos.internal.spnego.principal</name>
+    <value>HTTP/{{ansible_fqdn}}@{{ realm_name }}</value>
+  </property>
+  <property>
+    <name>dfs.secondary.namenode.kerberos.internal.spnego.keytab</name>
+    <value>{{ hadoop_secrets_dir }}/{{ realm_name }}.keytab</value>
+  </property>
+{% endif %}
+<!-- Datanode -->
+  <property>
+    <name>dfs.encrypt.data.transfer</name>
+    <value>{{ dfs_encrypt_data_transfer }}</value>
+  </property>
+{% if dfs_encrypt_data_transfer %}
+  <property>
+    <name>dfs.encrypt.data.transfer.algorithm</name>
+    <value>{{ dfs_encrypt_data_transfer_algorithm }}</value>
+  </property>
+  <property>
+    <name>dfs.encrypt.data.transfer.cipher.suites</name>
+    <value>{{ dfs_encrypt_data_transfer_suites }}</value>
+  </property>
+  <property>
+    <name>dfs.encrypt.data.transfer.cipher.key.bitlength</name>
+    <value>{{ dfs_encrypt_data_transfer_key_bitlength }}</value>
+  </property>
+{% endif %}
+  <property>
+    <name>dfs.datanode.address</name>
+    <value>{{ listening_address }}:{{ dfs_datanode_port }}</value>
+  </property>
+  <property>
+    <name>dfs.datanode.https.address</name>
+    <value>{{ listening_address }}:{{ https_datanode_port }}</value>
+  </property>
+{% if hadoop_security_authentication == "kerberos" %}
+  <property>
+    <name>dfs.data.transfer.protection</name>
+    <value>{{ data_transfer_protection }}</value>
+  </property>
+  <property>
+    <name>dfs.datanode.keytab.file</name>
+    <value>{{ hadoop_secrets_dir }}/{{ realm_name }}.keytab</value>
+  </property>
+  <property>
+    <name>dfs.datanode.kerberos.principal</name>
+    <value>hdfs/{{ansible_fqdn}}@{{ realm_name }}</value>
+  </property>
+<!-- JournalNode -->
+  <property>
+    <name>dfs.journalnode.edits.dir</name>
+    <value>{{ dfs_journalnode_journal_dir }}</value>
+  </property>
+  <property>
+    <name>dfs.journalnode.keytab.file</name>
+    <value>{{ hadoop_secrets_dir }}/{{ realm_name }}.keytab</value>
+  </property>
+  <property>
+    <name>dfs.journalnode.kerberos.principal</name>
+    <value>hdfs/{{ansible_fqdn}}@{{ realm_name }}</value>
+  </property>
+  <property>
+    <name>dfs.journalnode.kerberos.internal.spnego.principal</name>
+    <value>HTTP/{{ansible_fqdn}}@{{ realm_name }}</value>
+  </property>
+{% if use_nfs %}
+<!-- NFS -->
+  <property>
+    <name>dfs.nfs.keytab.file</name>
+    <value>{{ hadoop_secrets_dir }}/{{ realm_name }}.keytab</value>
+  </property>
+  <property>
+    <name>dfs.nfs.kerberos.principal</name>
+    <value>hdfs/{{ansible_fqdn}}@{{ realm_name }}</value>
+  </property>
+{% endif %}
+<!-- WEB HDFS -->
+  <property>
+    <name>dfs.web.authentication.kerberos.keytab</name>
+    <value>{{ hadoop_secrets_dir }}/{{ realm_name }}.keytab</value>
+  </property>
+  <property>
+    <name>dfs.web.authentication.kerberos.principal</name>
+    <value>HTTP/{{ansible_fqdn}}@{{ realm_name }}</value>
+  </property>
+{% endif %}
+</configuration>

@@ -1,0 +1,26 @@
+---
+# defaults file for ansible-nfs-server
+nfs_pkg:
+  - nfs-utils
+  - krb5-workstation
+
+nfs_intelligence_folder: /var/sds/intelligence
+nfs_keos_folder: /var/sds/keos
+nfs_minio_folder: /var/sds/minio
+additional_disk_mountpoint: /var/lib/docker
+nfs_sec: krb5
+nfs_server_ip: 0.0.0.0
+nfs_services:
+  - nfs-idmapd.service
+  - nfs-server.service
+  - nfs-config.service
+  - rpc-gssd.service
+  - rpc-statd-notify.service
+  - rpc-statd.service
+  - rpc-svcgssd.service
+  - rpcbind.service
+  - krb5-workstation.x86_64
+nfs_main_service: nfs-server.service
+ppass_user: install/admin
+ppass_password: stratio
+krb_server_type: mit

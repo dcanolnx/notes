@@ -1,0 +1,157 @@
+---
+## Es necesario tener instalado pyghmi para funcionar
+# $python3 -m pip install pyghmi
+
+- hosts: localhost
+  vars:
+    ipmi_user:     ADMIN
+    ipmi_password: ""
+    ipmi_port:     623
+    env:           ""
+    IPMIs:
+      - { mgmt: 'fullereno01m.int.stratio.com', env: 'fullek8s', host:   "fullereno01.labs.stratio.com", password: ""}
+      - { mgmt: 'fullereno02m.int.stratio.com', env: 'fullek8s', host:   "fullereno02.labs.stratio.com", password: "" }
+      - { mgmt: 'fullereno03m.int.stratio.com', env: 'fullek8s', host:   "fullereno03.labs.stratio.com", password: "" }
+      - { mgmt: 'fullereno04m.int.stratio.com', env: 'fullek8s', host:   "fullereno04.labs.stratio.com", password: "" }
+      - { mgmt: 'fullereno05m.int.stratio.com', env: 'fullek8s', host:   "fullereno05.labs.stratio.com", password: "" }
+      - { mgmt: 'fullereno06m.int.stratio.com', env: 'fullek8s', host:   "fullereno06.labs.stratio.com", password: "" }
+      # - { mgmt: 'fullereno07m.int.stratio.com', env: 'fullek8s', host:   "fullereno07.labs.stratio.com" }
+      - { mgmt: 'fullereno08m.int.stratio.com', env: 'fullek8s', host:   "fullereno08.labs.stratio.com", password: "" }
+      - { mgmt: 'fullereno09m.int.stratio.com', env: 'fullek8s', host:   "fullereno09.labs.stratio.com", password: "" }
+      - { mgmt: 'fullereno11m.int.stratio.com', env: 'fulle2k8s', host: "fullereno11.labs.stratio.com", password: "" }
+      - { mgmt: 'fullereno12m.int.stratio.com', env: 'fulle2k8s', host: "fullereno12.labs.stratio.com", password: "" }
+      - { mgmt: 'fullereno13m.int.stratio.com', env: 'fulle2k8s', host: "fullereno13.labs.stratio.com", password: "" }
+      - { mgmt: 'fullereno14m.int.stratio.com', env: 'fulle2k8s', host: "fullereno14.labs.stratio.com", password: "" }
+      - { mgmt: 'fullereno15m.int.stratio.com', env: 'fulle2k8s', host: "fullereno15.labs.stratio.com", password: "" }
+      - { mgmt: 'fullereno16m.int.stratio.com', env: 'fulle2k8s', host: "fullereno16.labs.stratio.com", password: "" }
+      - { mgmt: 'fullereno17m.int.stratio.com', env: 'fulle2k8s', host: "fullereno17.labs.stratio.com", password: "" }
+      - { mgmt: 'fullereno18m.int.stratio.com', env: 'fulle2k8s', host: "fullereno18.labs.stratio.com", password: "" }
+      - { mgmt: 'fullereno19m.int.stratio.com', env: 'fulle2k8s', host: "fullereno19.labs.stratio.com", password: "" }
+      - { mgmt: 'fullereno20m.int.stratio.com', env: 'fulle2k8s', host: "fullereno20.labs.stratio.com", password: "" }
+
+  tasks:
+  - set_fact:
+      ansible_python_interpreter: /usr/bin/python3
+
+  - name: "[First Attempt] Configure PXE on startup"
+    ipmi_boot:
+      bootdev: network
+      name: "{{ item.mgmt }}"
+      user: "{{ ipmi_user }}"
+      password: '{{ item.password }}'
+      port: "{{ ipmi_port }}"
+      state: present
+      persistent: no
+    with_items: "{{ IPMIs }}"
+    when: item.env == env
+
+  - name: "[First Attempt] Reboot server"
+    ipmi_power:
+      name: "{{ item.mgmt }}"
+      user: "{{ ipmi_user }}"
+      port: "{{ ipmi_port }}"
+      password: '{{ item.password }}'
+      state: reset
+    with_items: "{{ IPMIs }}"
+    when: item.env == env
+    loop_control:
+      pause: 10
+
+  - name: "[First Attempt] Wait for server to install OS"
+    pause:
+      minutes: 15
+
+  - name: "[Second Attempt] Check if all hosts are accessible"
+    uri:
+      url: "https://{{ item.host }}:22"  # Use https for port 22
+      validate_certs: no
+      method: GET
+      status_code: 200
+      timeout: 5
+    ignore_errors: yes
+    register: ssh_check_result
+    with_items: "{{ IPMIs }}"
+
+  - name: "[Second Attempt] Configure failed hosts PXE on startup"
+    ipmi_boot:
+      bootdev: network
+      name: "{{ item.item.mgmt }}"
+      user: "{{ ipmi_user }}"
+      password: '{{ item.item.password }}'
+      port: "{{ ipmi_port }}"
+      state: present
+      persistent: no
+    when: 
+      - "'Connection reset by peer' in  item.msg"
+      - item.item.env == env
+    with_items: "{{ ssh_check_result.results }}"
+    ignore_errors: yes
+
+  - name: "[Second Attempt] Reboot failed server installations"
+    ipmi_power:
+      name: "{{ item.item.mgmt }}"
+      user: "{{ ipmi_user }}"
+      port: "{{ ipmi_port }}"
+      password: '{{ item.item.password }}'
+      state: reset
+    when: 
+      - "'Connection reset by peer' in  item.msg"
+      - item.item.env == env
+    with_items: "{{ ssh_check_result.results }}"
+    ignore_errors: yes
+
+  - name: "[Second Attempt] Wait for server to install OS"
+    pause:
+      minutes: 15
+
+  - name: "[Third Attempt] Check if all hosts are accessible"
+    uri:
+      url: "https://{{ item.host }}:22"  # Use https for port 22
+      validate_certs: no
+      method: GET
+      status_code: 200
+      timeout: 5
+    ignore_errors: yes
+    register: ssh_check_result
+    with_items: "{{ IPMIs }}"
+
+  - name: "[Third Attempt] Configure failed hosts PXE on startup"
+    ipmi_boot:
+      bootdev: network
+      name: "{{ item.item.mgmt }}"
+      user: "{{ ipmi_user }}"
+      password: '{{ item.item.password }}'
+      port: "{{ ipmi_port }}"
+      state: present
+      persistent: no
+    when: 
+      - "'Connection reset by peer' in  item.msg"
+      - item.item.env == env
+    with_items: "{{ ssh_check_result.results }}"
+    ignore_errors: yes
+
+  - name: "[Third Attempt] Reboot failed server installations"
+    ipmi_power:
+      name: "{{ item.item.mgmt }}"
+      user: "{{ ipmi_user }}"
+      port: "{{ ipmi_port }}"
+      password: '{{ item.item.password }}'
+      state: reset
+    when: 
+      - "'Connection reset by peer' in  item.msg"
+      - item.item.env == env
+    with_items: "{{ ssh_check_result.results }}"
+    ignore_errors: yes
+
+  - name: "[Third Attempt] Wait for server to install OS"
+    pause:
+      minutes: 15
+
+  - name: Check if all hosts are accessible
+    wait_for: 
+      host: "{{ item.host }}" 
+      port: 22
+      sleep: 30
+      timeout: 600
+    with_items: "{{ IPMIs }}"
+    when: item.env == env

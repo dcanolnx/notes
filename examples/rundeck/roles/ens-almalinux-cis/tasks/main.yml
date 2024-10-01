@@ -1,0 +1,1958 @@
+---
+# tasks file for ens-almalinux-cis
+# - name: CIS - Check distribution is AlmaLinux
+#   ansible.builtin.fail:
+#     msg: This role can be run only on AlmaLinux 8 or CentOS 8
+#   when: (ansible_distribution == 'AlmaLinux' or ansible_distribution == 'CentOS') and (ansible_distribution_major_version == '8')
+
+
+- name: CIS 6000 - Ensure mounting of cramfs filesystems is disabled.
+  ansible.builtin.lineinfile:
+    path:   '/etc/modprobe.d/cramfs.conf'
+    line:   'install cramfs /bin/true'
+    create: true
+  tags: 
+    - cis6000
+
+- name: CIS 6000 - Ensure mounting of cramfs filesystems is disabled.
+  ansible.builtin.command: 'rmmod cramfs'
+  register: command_result
+  failed_when: "'Module cramfs is not currently loaded' not in command_result.stderr"
+  tags: 
+    - cis6000
+
+
+- name: CIS 6001 - Ensure mounting of squashfs filesystems is disabled.
+  ansible.builtin.lineinfile:
+    path:   '/etc/modprobe.d/CIS.conf'
+    line:   'install squashfs /bin/true'
+    create: true
+  tags: 
+    - cis6001
+
+- name: CIS 6001 - Ensure mounting of squashfs filesystems is disabled.
+  ansible.builtin.command: 'rmmod squashfs'
+  register: command_result
+  failed_when: "'Module squashfs is not currently loaded' not in command_result.stderr"
+  tags: 
+    - cis6001
+
+
+- name: CIS 6002 - Ensure mounting of udf filesystems is disabled.
+  ansible.builtin.lineinfile:
+    path:   '/etc/modprobe.d/CIS.conf'
+    line:   'install udf /bin/true'
+    create: true
+  tags: 
+    - cis6002
+
+- name: CIS 6002 - Ensure mounting of udf filesystems is disabled.
+  ansible.builtin.command: 'rmmod udf'
+  register: command_result
+  failed_when: "'Module udf is not currently loaded' not in command_result.stderr"
+  tags: 
+    - cis6002
+
+
+- name: CIS 6003 - Ensure mounting of FAT filesystems is disabled.
+  ansible.builtin.command: 'ls /sys/firmware/efi'
+  register: efi
+  ignore_errors: true
+  tags: 
+    - cis6003
+
+- name: CIS 6003 - Ensure mounting of FAT filesystems is disabled.
+  ansible.builtin.command: grep -E -i '\svfat\s' /etc/fstab 
+  register: fstab_svfat
+  when: efi.failed == false
+  tags: 
+    - cis6003
+
+- name: CIS 6003 - Review that any output is appropriate for the environment
+  debug:
+    var: fstab_svfat.stdout
+  when: efi.failed == false
+  tags: 
+    - cis6003
+
+- name: CIS 6003 - Ensure mounting of FAT filesystems is disabled.
+  ansible.builtin.lineinfile:
+    path:   '/etc/modprobe.d/fat.conf '
+    line:   '{{ item }}'
+    create: true
+  with_items:
+    - 'install fat /bin/true'
+    - 'install vfat /bin/true'
+    - 'install msdos /bin/true'
+  when: efi.failed == true
+  tags: 
+    - cis6003
+
+- name: CIS 6003 - Ensure mounting of FAT filesystems is disabled.
+  ansible.builtin.command: 'rmmod udf'
+  with_items:
+    - 'rmmod msdos'
+    - 'rmmod vfat'
+    - 'rmmod fat'
+  when: efi.failed == true
+  register: command_result
+  failed_when: "'is not currently loaded' not in command_result.stderr"
+  tags: 
+    - cis6003
+
+
+- name: CIS 6004 - Ensure /tmp is configured.
+  debug: 
+    msg: 'The /tmp mount point exists'
+  with_items: "{{ ansible_mounts }}"
+  when: item.mount == "/tmp"
+  register: check_mount_tmp
+  tags: 
+    - cis6004
+
+- name: CIS 6004 - Ensure /tmp is configured.
+  ansible.builtin.fail:
+    msg: "Configure /tmp mount point as appropriate. Example: tmpfs /tmp tmpfs     defaults,rw,nosuid,nodev,noexec,relatime  0 0"
+  when: check_mount_tmp.msg == "All items skipped"
+  ignore_errors: true
+  tags: 
+    - cis6004
+
+
+- name: CIS 6005 - Ensure noexec option set on /tmp partition.
+  ansible.builtin.fail:
+    msg: Edit the /etc/fstab file and add noexec to the fourth field (mounting options) for the /tmp partition
+  with_items: "{{ ansible_mounts }}"
+  when: 
+    - item.mount == "/tmp"
+    - item.options is not search("noexec")
+  tags: 
+    - cis6005
+
+
+- name: CIS 6006 - Ensure nodev option set on /tmp partition.
+  ansible.builtin.fail:
+    msg: Edit the /etc/fstab file and add nodev to the fourth field (mounting options) for the /tmp partition
+  with_items: "{{ ansible_mounts }}"
+  when: 
+    - item.mount == "/tmp"
+    - item.options is not search("nodev")
+  tags: 
+    - cis6006
+
+
+- name: CIS 6007 - Ensure nosuid option set on /tmp partition.
+  ansible.builtin.fail:
+    msg: Edit the /etc/fstab file and add nosuid to the fourth field (mounting options) for the /tmp partition
+  with_items: "{{ ansible_mounts }}"
+  when: 
+    - item.mount == "/tmp"
+    - item.options is not search("nosuid")
+  tags: 
+    - cis6007
+
+
+- name: CIS 6008 - Ensure /dev/shm is configured.
+  ansible.builtin.lineinfile:
+    path:   '/etc/fstab'
+    line:   'tmpfs      /dev/shm    tmpfs   defaults,noexec,nodev,nosuid,seclabel   0 0'
+  tags: 
+    - cis6008
+
+- name: CIS 6008 - Ensure /dev/shm is configured.
+  ansible.builtin.command: 'mount -o remount,noexec,nodev,nosuid /dev/shm'
+  tags: 
+    - cis6008
+
+
+- name: CIS 6009 - Ensure noexec option set on /dev/shm partition.
+  ansible.builtin.fail:
+    msg: Edit the /etc/fstab file and add noexec to the fourth field (mounting options) for the /dev/shm partition
+  with_items: "{{ ansible_mounts }}"
+  when: 
+    - item.mount == "/dev/shm"
+    - item.options is not search("noexec")
+  tags: 
+    - cis6009
+
+
+- name: CIS 6010 - Ensure nodev option set on /dev/shm partition.
+  ansible.builtin.fail:
+    msg: Edit the /etc/fstab file and add nodev to the fourth field (mounting options) for the /dev/shm partition
+  with_items: "{{ ansible_mounts }}"
+  when: 
+    - item.mount == "/dev/shm"
+    - item.options is not search("nodev")
+  tags: 
+    - cis6010
+
+
+- name: CIS 6011 - Ensure nosuid option set on /dev/shm partition.
+  ansible.builtin.fail:
+    msg: Edit the /etc/fstab file and add nosuid to the fourth field (mounting options) for the /dev/shm partition
+  with_items: "{{ ansible_mounts }}"
+  when: 
+    - item.mount == "/dev/shm"
+    - item.options is not search("nosuid")
+  tags: 
+    - cis6011
+
+
+- name: CIS 6012 - Ensure separate partition exists for /var.
+  debug: 
+    msg: 'The /var mount point exists'
+  with_items: "{{ ansible_mounts }}"
+  when: item.mount == "/var"
+  register: check_mount_var
+  tags: 
+    - cis6012
+
+- name: CIS 6012 - Ensure separate partition exists for /var.
+  ansible.builtin.fail:
+    msg: "Configure /var mount point as appropriate."
+  when: check_mount_var.msg == "All items skipped"
+  ignore_errors: true
+  tags: 
+    - cis6012
+
+
+- name: CIS 6013 - Ensure separate partition exists for /var/tmp.
+  debug: 
+    msg: 'The /var/tmp mount point exists'
+  with_items: "{{ ansible_mounts }}"
+  when: item.mount == "/var/tmp"
+  register: check_mount_var_tmp
+  tags: 
+    - cis6013
+
+- name: CIS 6013 - Ensure separate partition exists for /var/tmp.
+  ansible.builtin.fail:
+    msg: "Configure /var/tmp mount point as appropriate. Example: tmpfs /var/tmp tmpfs     defaults,rw,nosuid,nodev,noexec,relatime  0 0"
+  when: check_mount_var_tmp.msg == "All items skipped"
+  ignore_errors: true
+  tags: 
+    - cis6013
+
+
+- name: CIS 6014 - Ensure noexec option set on /var/tmp partition.
+  ansible.builtin.fail:
+    msg: Edit the /etc/fstab file and add noexec to the fourth field (mounting options) for the /var/tmp partition
+  with_items: "{{ ansible_mounts }}"
+  when: 
+    - item.mount == "/var/tmp"
+    - item.options is not search("noexec")
+  tags: 
+    - cis6014
+
+
+- name: CIS 6015 - Ensure nodev option set on /var/tmp partition.
+  ansible.builtin.fail:
+    msg: Edit the /etc/fstab file and add nodev to the fourth field (mounting options) for the /var/tmp partition
+  with_items: "{{ ansible_mounts }}"
+  when: 
+    - item.mount == "/var/tmp"
+    - item.options is not search("nodev")
+  tags: 
+    - cis6015
+
+
+- name: CIS 6016 - Ensure nosuid option set on /var/tmp partition.
+  ansible.builtin.fail:
+    msg: Edit the /etc/fstab file and add nosuid to the fourth field (mounting options) for the /var/tmp partition
+  with_items: "{{ ansible_mounts }}"
+  when: 
+    - item.mount == "/var/tmp"
+    - item.options is not search("nosuid")
+  tags: 
+    - cis6016
+
+
+- name: CIS 6017 - Ensure separate partition exists for /var/log.
+  debug: 
+    msg: 'The /var/log mount point exists'
+  with_items: "{{ ansible_mounts }}"
+  when: item.mount == "/var/log"
+  register: check_mount_var_log
+  tags: 
+    - cis6017
+
+- name: CIS 6017 - Ensure separate partition exists for /var/log.
+  ansible.builtin.fail:
+    msg: "Configure /var/log mount point as appropriate."
+  when: check_mount_var_log.msg == "All items skipped"
+  ignore_errors: true
+  tags: 
+    - cis6017
+
+
+- name: CIS 6018 - Ensure separate partition exists for /var/log/audit.
+  debug: 
+    msg: 'The /var/log/audit mount point exists'
+  with_items: "{{ ansible_mounts }}"
+  when: item.mount == "/var/log/audit"
+  register: check_mount_var_log_audit
+  tags: 
+    - cis6018
+
+- name: CIS 6018 - Ensure separate partition exists for /var/log/audit.
+  ansible.builtin.fail:
+    msg: "Configure /var/log/audit mount point as appropriate."
+  when: check_mount_var_log_audit.msg == "All items skipped"
+  ignore_errors: true
+  tags: 
+    - cis6018
+
+
+- name: CIS 6019 - Ensure separate partition exists for /home.
+  debug: 
+    msg: 'The /home mount point exists'
+  with_items: "{{ ansible_mounts }}"
+  when: item.mount == "/home"
+  register: check_mount_home
+  tags: 
+    - cis6019
+
+- name: CIS 6019 - Ensure separate partition exists for /home.
+  ansible.builtin.fail:
+    msg: "Configure /home mount point as appropriate."
+  when: check_mount_home.msg == "All items skipped"
+  ignore_errors: true
+  tags: 
+    - cis6019
+
+
+- name: CIS 6020 - Ensure nodev option set on /home partition.
+  ansible.builtin.fail:
+    msg: Edit the /etc/fstab file and add nodev to the fourth field (mounting options) for the /home partition
+  with_items: "{{ ansible_mounts }}"
+  when: 
+    - item.mount == "/home"
+    - item.options is not search("nodev")
+  ignore_errors: true
+  tags: 
+    - cis6020
+
+
+- name: CIS 6021 - Disable Automounting.
+  ansible.builtin.systemd:
+    name: autofs
+    enabled: false
+  ignore_errors: true
+  tags: 
+    - cis6021
+
+
+- name: CIS 6022 - Disable USB Storage.
+  ansible.builtin.lineinfile:
+    path:   '/etc/modprobe.d/usb_storage.conf'
+    line:   'install usb-storage /bin/true'
+    create: true
+  tags: 
+    - cis6022
+
+- name: CIS 6022 - Disable USB Storage.
+  ansible.builtin.command: 'rmmod usb-storage'
+  register: command_result
+  failed_when: "'Module usb_storage is not currently loaded' not in command_result.stderr"
+  tags: 
+    - cis6022
+
+
+- name: CIS 6023 - Ensure gpgcheck is globally activated.
+  ansible.builtin.command: grep -r -i 'gpgcheck' /etc/yum.conf /etc/yum.repos.d/
+  register: yum_gpgcheck
+  tags: 
+    - cis6023
+
+- name: CIS 6023 - Ensure gpgcheck is globally activated.
+  ansible.builtin.fail:
+    msg: "Edit {{item}} and set gpgcheck=1."
+  with_items: "{{ yum_gpgcheck.stdout_lines }}"
+  when: "'gpgcheck=1' not in item"
+  ignore_errors: true
+  tags: 
+    - cis6023
+
+
+- name: CIS 6024 - Ensure sudo is installed.
+  ansible.builtin.yum:
+    name: sudo
+    state: latest
+  tags: 
+    - cis6024
+
+
+- name: CIS 6025 - Ensure sudo commands use pty.
+  ansible.builtin.lineinfile:
+    path:     /etc/sudoers
+    state:    present
+    line:     'Defaults use_pty'
+    validate: '/usr/sbin/visudo -cf %s'
+  tags: 
+    - cis6025
+
+
+- name: CIS 6026 - Ensure sudo log file exists.
+  ansible.builtin.lineinfile:
+    path:     /etc/sudoers
+    state:    present
+    line:     Defaults  logfile="/var/log/sudo.log"
+    validate: '/usr/sbin/visudo -cf %s'
+  tags: 
+    - cis6026
+
+
+- name: CIS 6027 - Ensure AIDE is installed.
+  ansible.builtin.yum:
+    name: aide
+    state: latest
+  tags: 
+    - cis6027
+
+- name: CIS 6027 - Ensure AIDE is installed and initialized.
+  ansible.builtin.command: 'aide --init'
+  tags: 
+    - cis6027
+
+- name: CIS 6027 - Ensure AIDE is installed and initialized.
+  ansible.builtin.copy: 
+    remote_src: true 
+    src: /var/lib/aide/aide.db.new.gz
+    dest: /var/lib/aide/aide.db.gz
+    force: no
+  tags:
+    - cis6027
+
+- name: CIS 6027 - Ensure AIDE is installed and initialized.
+  ansible.builtin.command: 'aide --check'
+  ignore_errors: true
+  tags:
+    - cis6027
+
+
+- name: CIS 6028 - Ensure filesystem integrity is regularly checked.
+  ansible.builtin.cron:
+    name: "CIS 6028 AIDE Check"
+    minute: "0"
+    hour: "5"
+    job: "/usr/sbin/aide --check"
+  tags: 
+    - cis6028
+
+
+- name: CIS 6030 - Ensure permissions on bootloader config are configured.
+  ansible.builtin.file:
+    path:   "{{item}}"
+    state:  file
+    mode:   '0600'
+    owner:  root
+    group:  root
+  with_items:
+    - '/boot/grub2/grub.cfg'
+    - '/boot/grub2/user.cfg'
+  ignore_errors: true
+  tags: 
+    - cis6030
+
+
+- name: CIS 6031 - Ensure authentication required for single user mode.
+  ansible.builtin.lineinfile:
+    path:   '/usr/lib/systemd/system/emergency.service'
+    line:   ExecStart=-/bin/sh -c "/usr/sbin/sulogin; /usr/bin/systemctl --fail --no-block default"
+  tags: 
+    - cis6031
+
+
+- name: CIS 6032 - Ensure core dumps are restricted.
+  ansible.builtin.lineinfile:
+    path:   '/etc/security/limits.conf'
+    line:   '* hard core 0'
+  tags: 
+    - cis6032
+
+- name: CIS 6032 - Ensure core dumps are restricted.
+  ansible.builtin.lineinfile:
+    path:   '/etc/sysctl.conf'
+    line:   'fs.suid_dumpable = 0'
+  tags: 
+    - cis6032
+
+- name: CIS 6032 - Ensure core dumps are restricted.
+  ansible.builtin.command: 'sysctl -w fs.suid_dumpable=0'
+  tags: 
+    - cis6032
+
+
+- name: CIS 6034 - Ensure address space layout randomization (ASLR) is enabled.
+  ansible.builtin.lineinfile:
+    path:   '/etc/sysctl.conf'
+    line:   'kernel.randomize_va_space = 2'
+  tags: 
+    - cis6034
+
+- name: CIS 6034 - Ensure address space layout randomization (ASLR) is enabled.
+  ansible.builtin.command: 'sysctl -w kernel.randomize_va_space=2'
+  tags: 
+    - cis6034
+
+
+- name: CIS 6035 - Ensure prelink is installed.
+  ansible.builtin.yum:
+    name:   prelink
+    state:  absent
+  tags: 
+    - cis6035
+
+
+- name: CIS 6036 - Ensure SELinux is installed.
+  ansible.builtin.yum:
+    name:   libselinux
+    state:  latest
+  tags: 
+    - cis6036
+
+
+- name: CIS 6037 - Ensure SELinux is not disabled in bootloader configuration.
+  ansible.builtin.command: 'cat /etc/default/grub'
+  register: grub_file
+  tags: 
+    - cis6037
+
+- name: CIS 6037 - Ensure SELinux is not disabled in bootloader configuration.
+  ansible.builtin.fail:
+    msg: "Remove all instances of {{item}} from /etc/default/grub."
+  with_items:
+    - "selinux=0"
+    - "enforcing=0"
+  when: grub_file.stdout.find(item) != -1
+  ignore_errors: true
+  tags: 
+    - cis6037
+
+
+- name: CIS 6038 - Ensure SELinux policy is configured.
+  ansible.builtin.lineinfile:
+    path:   '/etc/selinux/config'
+    regexp: '^SELINUXTYPE='
+    line:   'SELINUXTYPE=targeted'
+  tags: 
+    - cis6038
+
+
+- name: CIS 6039 - Ensure the SELinux mode is enforcing or permissive.
+  ansible.builtin.lineinfile:
+    path:   '/etc/selinux/config'
+    regexp: '^SELINUX='
+    line:   'SELINUX=permissive'
+  tags: 
+    - cis6039
+
+- name: CIS 6039 - Ensure the SELinux mode is enforcing or permissive.
+  ansible.posix.selinux:
+    policy: targeted
+    state: permissive
+  tags: 
+    - cis6039
+
+
+- name: CIS 6041 - Ensure SETroubleshoot is not installed.
+  ansible.builtin.yum:
+    name:   setroubleshoot
+    state:  absent
+  tags: 
+    - cis6041
+
+
+- name: CIS 6042 - Ensure the MCS Translation Service (mcstrans) is not installed.
+  ansible.builtin.yum:
+    name:   mcstrans
+    state:  absent
+  tags: 
+    - cis6042
+
+
+- name: CIS 6043 - Ensure message of the day is configured properly.
+  ansible.builtin.file:
+    path:   "/etc/motd"
+    state:  absent
+  tags: 
+    - cis6043
+
+
+- name: CIS 6044 - Ensure local login warning banner is configured properly.
+  ansible.builtin.lineinfile:
+    path:   '/etc/issue'
+    line:   'Authorized uses only. All activity may be monitored and reported.'
+  tags: 
+    - cis6044
+
+
+- name: CIS 6045 - Ensure remote login warning banner is configured properly.
+  ansible.builtin.lineinfile:
+    path:   '/etc/issue.net'
+    line:   'Authorized uses only. All activity may be monitored and reported.'
+  tags: 
+    - cis6045
+
+
+- name: CIS 6046 - Ensure permissions on /etc/motd are configured.
+  ansible.builtin.file:
+    path:   "/etc/motd"
+    state:  file
+    mode:   '0644'
+    owner:  root
+    group:  root
+  ignore_errors: true
+  tags: 
+    - cis6046
+
+
+- name: CIS 6047 - Ensure permissions on /etc/issue are configured.
+  ansible.builtin.file:
+    path:   "/etc/issue"
+    state:  file
+    mode:   '0644'
+    owner:  root
+    group:  root
+  tags: 
+    - cis6047
+
+
+- name: CIS 6048 - Ensure permissions on /etc/issue.net are configured.
+  ansible.builtin.file:
+    path:   "/etc/issue.net"
+    state:  file
+    mode:   '0644'
+    owner:  root
+    group:  root
+  tags: 
+    - cis6048
+
+
+- name: CIS 6049 - Ensure updates, patches, and additional security software are installed.
+  ansible.builtin.yum:
+    name: '*'
+    state: latest
+  tags: 
+    - cis6049
+
+
+- name: CIS 6050 - Ensure GDM login banner is configured.
+  ansible.builtin.yum:
+    name:   gdm
+    state:  absent
+  ignore_errors: true
+  tags: 
+    - cis6050
+
+
+- name: CIS 6051 - Ensure daytime services are not enabled.
+  ansible.builtin.yum:
+    name:   xinetd
+    state:  absent
+  ignore_errors: true
+  tags: 
+    - cis6051
+
+
+- name: CIS 6052 - Ensure time synchronization is in use.
+  ansible.builtin.yum:
+    name: chrony
+    state: present
+  ignore_errors: true
+  tags: 
+    - cis6051
+
+
+- name: CIS 6053 - Ensure chrony is configured.
+  ansible.builtin.lineinfile:
+    path: /etc/chrony.conf
+    regexp: '^server (.*)centos.pool.ntp.org(.*)$'
+    state: absent
+  tags: 
+    - cis6053
+
+- name: CIS 6053 - Ensure chrony is configured.
+  ansible.builtin.lineinfile:
+    path: /etc/chrony.conf
+    insertbefore: '# Please consider joining(.*)'
+    line: 'server hora.roa.es'
+  tags: 
+    - cis6053
+
+- name: CIS 6053 - Ensure chrony is configured.
+  ansible.builtin.command: "chronyd -q 'server hora.roa.es'"
+  ignore_errors: true
+  tags: 
+    - cis6053
+
+- name: CIS 6053 - Ensure chrony is configured.
+  ansible.builtin.systemd:
+    name:     "chronyd"
+    state:    restarted
+    enabled:  yes
+  tags: 
+    - cis6053
+
+
+- name: CIS 6055 - Ensure X11 Server components are not installed.
+  ansible.builtin.yum:
+    name:   "xorg-x11*"
+    state:  absent
+  ignore_errors: true
+  tags: 
+    - cis6055
+
+
+- name: CIS 6056 - Ensure Avahi Server is not installed.
+  ansible.builtin.yum:
+    name:   "avahi*"
+    state:  absent
+  tags: 
+    - cis6056
+
+
+- name: CIS 6057 - Ensure CUPS is not installed.
+  ansible.builtin.yum:
+    name:   "cups"
+    state:  absent
+  tags: 
+    - cis6057
+
+
+# - name: CIS 6058 - Ensure DHCP Server is not installed.
+#   ansible.builtin.yum:
+#     name:   "dhcp"
+#     state:  absent
+#   tags: 
+#     - cis6058
+
+
+- name: CIS 6059 - Ensure LDAP Server is not installed.
+  ansible.builtin.yum:
+    name:   "openldap-servers"
+    state:  absent
+  tags: 
+    - cis6059
+
+
+- name: CIS 6060 - Ensure nfs-utils is not installed or the nfs-server service is masked.
+  ansible.builtin.yum:
+    name:   "nfs-utils"
+    state:  absent
+  tags: 
+    - cis6060
+
+
+- name: CIS 6061 - Ensure rpcbind is not installed or the rpcbind services are masked.
+  ansible.builtin.yum:
+    name:   "rpcbind"
+    state:  absent
+  tags: 
+    - cis6061
+
+
+- name: CIS 6062 - Ensure DNS Server is not installed.
+  ansible.builtin.yum:
+    name:   "bind"
+    state:  absent
+  tags: 
+    - cis6062
+
+
+# - name: CIS 6063 - Ensure FTP Server is not installed.
+#   ansible.builtin.yum:
+#     name:   "vsftpd"
+#     state:  absent
+#   tags: 
+#     - cis6063
+
+
+# - name: CIS 6064 - Ensure HTTP server is not installed.
+#   ansible.builtin.yum:
+#     name:   "httpd"
+#     state:  absent
+#   tags: 
+#     - cis6064
+
+
+- name: CIS 6065 - Ensure IMAP and POP3 server is not installed.
+  ansible.builtin.yum:
+    name:   "dovecot"
+    state:  absent
+  tags: 
+    - cis6065
+
+
+- name: CIS 6066 - Ensure Samba is not installed.
+  ansible.builtin.yum:
+    name:   "samba"
+    state:  absent
+  tags: 
+    - cis6066
+
+
+- name: CIS 6067 - Ensure HTTP Proxy Server is not installed.
+  ansible.builtin.yum:
+    name:   "squid"
+    state:  absent
+  tags: 
+    - cis6067
+
+
+- name: CIS 6068 - Ensure SNMP Server is not installed.
+  ansible.builtin.yum:
+    name:   "net-snmp"
+    state:  absent
+  tags: 
+    - cis6068
+
+
+- name: CIS 6069 - Ensure mail transfer agent is configured for local-only mode.
+  ansible.builtin.lineinfile:
+    path:   '/etc/postfix/main.cf'
+    line:   'inet_interfaces = loopback-only'
+    insertbefore: '^# RECEIVING MAIL'
+    regexp: '^inet_interfaces'
+  ignore_errors: true
+  tags: 
+    - cis6069
+
+- name: CIS 6069 - Ensure mail transfer agent is configured for local-only mode.
+  ansible.builtin.systemd:
+    name:   postfix
+    state:  restarted
+  ignore_errors: true
+  tags: 
+    - cis6069
+
+
+- name: CIS 6070 - Ensure rsync is not installed or the rsyncd service is masked.
+  ansible.builtin.yum:
+    name:   "rsync"
+    state:  absent
+  tags: 
+    - cis6070
+
+
+- name: CIS 6071 - Ensure NIS Server is not installed.
+  ansible.builtin.yum:
+    name:   "ypserv"
+    state:  absent
+  tags: 
+    - cis6071
+
+
+- name: CIS 6072 - Ensure telnet server is not installed.
+  ansible.builtin.yum:
+    name:   "telnet-server"
+    state:  absent
+  tags: 
+    - cis6072
+
+
+- name: CIS 6073 - Ensure NIS Client is not installed.
+  ansible.builtin.yum:
+    name:   "ypbind"
+    state:  absent
+  tags: 
+    - cis6073
+
+
+- name: CIS 6074 - Ensure rsh client is not installed.
+  ansible.builtin.yum:
+    name:   "rsh"
+    state:  absent
+  tags: 
+    - cis6074
+
+
+- name: CIS 6075 - Ensure talk client is not installed.
+  ansible.builtin.yum:
+    name:   "talk"
+    state:  absent
+  tags: 
+    - cis6075
+
+
+- name: CIS 6076 - Ensure telnet client is not installed.
+  ansible.builtin.yum:
+    name:   "telnet"
+    state:  absent
+  tags: 
+    - cis6076
+
+
+- name: CIS 6077 - Ensure LDAP client is not installed.
+  ansible.builtin.yum:
+    name:   "openldap-clients"
+    state:  absent
+  tags: 
+    - cis6077
+
+
+- name: CIS 6078 - Ensure nonessential services are removed or masked.
+  ansible.builtin.yum:
+    name:   "lsof"
+    state:  latest
+  ignore_errors: true
+  tags: 
+    - cis6078
+
+- name: CIS 6078 - Ensure nonessential services are removed or masked.
+  ansible.builtin.shell: "/sbin/lsof -i -P -n | grep -v '(ESTABLISHED)'"
+  register: lsof_output
+  ignore_errors: true
+  tags: 
+    - cis6078
+
+- name: CIS 6078 - Ensure nonessential services are removed or masked.
+  vars:
+    Message: 
+      Action: "To ensure that all services listed are required on the system. If a listed service is not required, remove the package containing the service. If the package containing the service is required, stop and mask the service. Run the following command to remove the package containing the service:# yum remove <package_name> OR if required packages have a dependency: run the following command to stop and mask the service:# systemctl --now mask <service_name>"
+      lsoft: "{{ lsof_output.stdout_lines }}"
+  debug:
+    var: Message
+  ignore_errors: true
+  tags: 
+    - cis6078
+
+
+- name: CIS 6079 - Disable IPv6.
+  ansible.builtin.lineinfile:
+    path:   '/etc/sysctl.conf'
+    line:   '{{item}}'
+  with_items:
+    - 'net.ipv6.conf.all.disable_ipv6 = 1'
+    - 'net.ipv6.conf.default.disable_ipv6 = 1'
+  tags: 
+    - cis6079
+
+- name: CIS 6079 - Disable IPv6.
+  ansible.builtin.command: '{{item}}'
+  with_items:
+    - 'sysctl -w net.ipv6.conf.all.disable_ipv6=1'
+    - 'sysctl -w net.ipv6.conf.default.disable_ipv6=1'
+    - 'sysctl -w net.ipv6.route.flush=1'
+  tags: 
+    - cis6079
+
+
+- name: CIS 6080 - Ensure wireless interfaces are disabled.
+  ansible.builtin.shell: "ip link"
+  register: ip_output
+  tags: 
+    - cis6080
+
+- name: CIS 6080 - Ensure wireless interfaces are disabled.
+  vars:
+    Message: 
+      Action: "Run the following command to disable any wireless interfaces: # ip link set <interface> down"
+      ip: "{{ ip_output.stdout_lines }}"
+  debug:
+    var: Message
+  tags: 
+    - cis6080
+
+
+- name: CIS 6082 - Ensure packet redirect sending is disabled.
+  ansible.builtin.lineinfile:
+    path:   '/etc/sysctl.conf'
+    line:   '{{item}}'
+  with_items:
+    - 'net.ipv4.conf.all.send_redirects = 0'
+    - 'net.ipv4.conf.default.send_redirects = 0'
+  tags: 
+    - cis6082
+
+- name: CIS 6082 - Ensure packet redirect sending is disabled.
+  ansible.builtin.command: '{{item}}'
+  with_items:
+    - 'sysctl -w net.ipv4.conf.all.send_redirects=0'
+    - 'sysctl -w net.ipv4.conf.default.send_redirects=0'
+    - 'sysctl -w net.ipv4.route.flush=1'
+  tags: 
+    - cis6082
+
+
+- name: CIS 6083 - Ensure source routed packets are not accepted.
+  ansible.builtin.lineinfile:
+    path:   '/etc/sysctl.conf'
+    line:   '{{item}}'
+  with_items:
+    - 'net.ipv4.conf.all.accept_source_route = 0'
+    - 'net.ipv4.conf.default.accept_source_route = 0'
+  tags: 
+    - cis6083
+
+- name: CIS 6083 - Ensure source routed packets are not accepted.
+  ansible.builtin.command: '{{item}}'
+  with_items:
+    - 'sysctl -w net.ipv4.conf.all.accept_source_route=0'
+    - 'sysctl -w net.ipv4.conf.default.accept_source_route=0'
+    - 'sysctl -w net.ipv4.route.flush=1'
+  tags: 
+    - cis6083
+
+
+- name: CIS 6084 - Ensure ICMP redirects are not accepted.
+  ansible.builtin.lineinfile:
+    path:   '/etc/sysctl.conf'
+    line:   '{{item}}'
+  with_items:
+    - 'net.ipv4.conf.all.accept_source_route = 0'
+    - 'net.ipv4.conf.default.accept_source_route = 0'
+  tags: 
+    - cis6084
+
+- name: CIS 6084 - Ensure ICMP redirects are not accepted.
+  ansible.builtin.command: '{{item}}'
+  with_items:
+    - 'sysctl -w net.ipv4.conf.all.accept_source_route=0'
+    - 'sysctl -w net.ipv4.conf.default.accept_source_route=0'
+    - 'sysctl -w net.ipv4.route.flush=1'
+  tags: 
+    - cis6084
+
+
+- name: CIS 6085 - Ensure ICMP redirects are not accepted.
+  ansible.builtin.lineinfile:
+    path:   '/etc/sysctl.conf'
+    line:   '{{item}}'
+  with_items:
+    - 'net.ipv4.conf.all.secure_redirects = 0'
+    - 'net.ipv4.conf.default.secure_redirects = 0'
+  tags: 
+    - cis6085
+
+- name: CIS 6085 - Ensure ICMP redirects are not accepted.
+  ansible.builtin.command: '{{item}}'
+  with_items:
+    - 'sysctl -w net.ipv4.conf.all.secure_redirects=0'
+    - 'sysctl -w net.ipv4.conf.default.secure_redirects=0'
+    - 'sysctl -w net.ipv4.route.flush=1'
+  tags: 
+    - cis6085
+
+
+- name: CIS 6086 - Ensure suspicious packets are logged.
+  ansible.builtin.lineinfile:
+    path:   '/etc/sysctl.conf'
+    line:   '{{item}}'
+  with_items:
+    - 'net.ipv4.conf.all.log_martians = 1'
+    - 'net.ipv4.conf.default.log_martians = 1'
+  tags: 
+    - cis6086
+
+- name: CIS 6086 - Ensure suspicious packets are logged.
+  ansible.builtin.command: '{{item}}'
+  with_items:
+    - 'sysctl -w net.ipv4.conf.all.log_martians=1'
+    - 'sysctl -w net.ipv4.conf.default.log_martians=1'
+    - 'sysctl -w net.ipv4.route.flush=1'
+  tags: 
+    - cis6086
+
+
+- name: CIS 6087 - Ensure broadcast ICMP requests are ignored.
+  ansible.builtin.lineinfile:
+    path:   '/etc/sysctl.conf'
+    line:   '{{item}}'
+  with_items:
+    - 'net.ipv4.icmp_echo_ignore_broadcasts = 1'
+  tags: 
+    - cis6087
+
+- name: CIS 6087 - Ensure broadcast ICMP requests are ignored.
+  ansible.builtin.command: '{{item}}'
+  with_items:
+    - 'sysctl -w net.ipv4.icmp_echo_ignore_broadcasts=1'
+    - 'sysctl -w net.ipv4.route.flush=1'
+  tags: 
+    - cis6087
+
+
+- name: CIS 6088 - Ensure bogus ICMP responses are ignored.
+  ansible.builtin.lineinfile:
+    path:   '/etc/sysctl.conf'
+    line:   '{{item}}'
+  with_items:
+    - 'net.ipv4.icmp_ignore_bogus_error_responses = 1'
+  tags: 
+    - cis6088
+
+- name: CIS 6088 - Ensure bogus ICMP responses are ignored.
+  ansible.builtin.command: '{{item}}'
+  with_items:
+    - 'sysctl -w net.ipv4.icmp_ignore_bogus_error_responses=1'
+    - 'sysctl -w net.ipv4.route.flush=1'
+  tags: 
+    - cis6088
+
+
+- name: CIS 6089 - Ensure Reverse Path Filtering is enabled.
+  ansible.builtin.lineinfile:
+    path:   '/etc/sysctl.conf'
+    line:   '{{item}}'
+  with_items:
+    - 'net.ipv4.conf.all.rp_filter = 1'
+    - 'net.ipv4.conf.default.rp_filter = 1'
+  tags: 
+    - cis6089
+
+- name: CIS 6089 - Ensure Reverse Path Filtering is enabled.
+  ansible.builtin.command: '{{item}}'
+  with_items:
+    - 'sysctl -w net.ipv4.conf.all.rp_filter=1'
+    - 'sysctl -w net.ipv4.conf.default.rp_filter=1'
+    - 'sysctl -w net.ipv4.route.flush=1'
+  tags: 
+    - cis6089
+
+
+- name: CIS 6090 - Ensure TCP SYN Cookies is enabled.
+  ansible.builtin.lineinfile:
+    path:   '/etc/sysctl.conf'
+    line:   '{{item}}'
+  with_items:
+    - 'net.ipv4.tcp_syncookies = 1'
+  tags: 
+    - cis6090
+
+- name: CIS 6090 - Ensure TCP SYN Cookies is enabled.
+  ansible.builtin.command: '{{item}}'
+  with_items:
+    - 'sysctl -w net.ipv4.tcp_syncookies=1'
+    - 'sysctl -w net.ipv4.route.flush=1'
+  tags: 
+    - cis6090
+
+
+- name: CIS 6091 - Ensure IPv6 router advertisements are not accepted.
+  ansible.builtin.lineinfile:
+    path:   '/etc/sysctl.conf'
+    line:   '{{item}}'
+  with_items:
+    - 'net.ipv6.conf.all.accept_ra = 0'
+    - 'net.ipv6.conf.default.accept_ra = 0'
+  tags: 
+    - cis6091
+
+- name: CIS 6091 - Ensure IPv6 router advertisements are not accepted.
+  ansible.builtin.command: '{{item}}'
+  with_items:
+    - 'sysctl -w net.ipv6.conf.all.accept_ra=0'
+    - 'sysctl -w net.ipv6.conf.default.accept_ra=0'
+    - 'sysctl -w net.ipv6.route.flush=1'
+  tags: 
+    - cis6091
+
+
+- name: CIS 6091 - Ensure IPv6 router advertisements are not accepted.
+  ansible.builtin.lineinfile:
+    path:   '/etc/sysctl.conf'
+    line:   '{{item}}'
+  with_items:
+    - 'net.ipv6.conf.all.accept_ra = 0'
+    - 'net.ipv6.conf.default.accept_ra = 0'
+  tags: 
+    - cis6091
+
+
+- name: CIS 6092 - Ensure DCCP is disabled.
+  ansible.builtin.lineinfile:
+    path:   '/etc/modprobe.d/CIS.conf'
+    line:   'install dccp /bin/true'
+    create: true
+  tags: 
+    - cis6092
+
+
+- name: CIS 6093 - Ensure SCTP is disabled.
+  ansible.builtin.lineinfile:
+    path:   '/etc/modprobe.d/CIS.conf'
+    line:   'install sctp /bin/true'
+    create: true
+  tags: 
+    - cis6093
+
+
+- name: CIS 6094 - Ensure FirewallD is installed.
+  ansible.builtin.yum:
+    name:   'firewalld'
+    state:  latest
+  tags: 
+    - cis6024
+
+
+- name: CIS 6113 - Ensure auditd is installed.
+  ansible.builtin.yum:
+    name:   '{{item}}'
+    state:  latest
+  with_items:
+    - audit
+    - audit-libs
+  tags: 
+    - cis6113
+
+
+- name: CIS 6114 - Ensure auditd service is enabled and running.
+  ansible.builtin.systemd:
+    name:     "auditd"
+    state:    restarted
+    enabled:  yes
+  ignore_errors: true
+  tags: 
+    - cis6114
+
+
+- name: CIS 6115 - Ensure auditing for processes that start prior to auditd is enabled.
+  ansible.builtin.command: 'cat /etc/default/grub'
+  register: grub_file
+  tags: 
+    - cis6115
+
+- name: CIS 6115 - Ensure auditing for processes that start prior to auditd is enabled.
+  ansible.builtin.lineinfile:
+    path:   '/etc/default/grub'
+    line:   '{{ item[:-1] }} audit=1"'
+    regexp: '^GRUB_CMDLINE_LINUX'
+  with_items: "{{ grub_file.stdout_lines }}"
+  when: 
+    - "'GRUB_CMDLINE_LINUX' in item"
+    - "'audit=1' not in item"
+  tags: 
+    - cis6115
+
+- name: CIS 6115 - Ensure auditing for processes that start prior to auditd is enabled.
+  ansible.builtin.command: 'grub2-mkconfig -o /boot/grub2/grub.cfg'
+  tags: 
+    - cis6115
+
+
+- name: CIS 6116 - Ensure audit log storage size is configured.
+  ansible.builtin.lineinfile:
+    path:   '/etc/audit/auditd.conf'
+    line:   'max_log_file = 50'
+    regexp: '^max_log_file ='
+  tags: 
+    - cis6116
+
+
+- name: CIS 6117 - Ensure audit logs are not automatically deleted.
+  ansible.builtin.lineinfile:
+    path:   '/etc/audit/auditd.conf'
+    line:   'max_log_file_action = keep_logs'
+    regexp: '^max_log_file_action ='
+  tags: 
+    - cis6117
+
+
+- name: CIS 6118 - Ensure system is disabled when audit logs are full.
+  ansible.builtin.lineinfile:
+    path:   '/etc/audit/auditd.conf'
+    line:   '{{ item }}'
+    regexp: "^{{ item.split('=')[0] }}"
+  with_items:
+   - 'space_left_action = email'
+   - 'action_mail_acct = root'
+   - 'admin_space_left_action = halt'
+  tags: 
+    - cis6118
+
+
+- name: CIS 6119 - Ensure audit_backlog_limit is sufficient.
+  ansible.builtin.command: 'cat /etc/default/grub'
+  register: grub_file
+  tags: 
+    - cis6119
+
+- name: CIS 6119 - Ensure audit_backlog_limit is sufficient.
+  ansible.builtin.lineinfile:
+    path:   '/etc/default/grub'
+    line:   '{{ item[:-1] }} audit_backlog_limit=8192"'
+    regexp: '^GRUB_CMDLINE_LINUX'
+  with_items: "{{ grub_file.stdout_lines }}"
+  when: 
+    - "'GRUB_CMDLINE_LINUX' in item"
+    - "'audit_backlog_limit=8192' not in item"
+  tags: 
+    - cis6119
+
+- name: CIS 6119 - Ensure audit_backlog_limit is sufficient.
+  ansible.builtin.command: 'grub2-mkconfig -o /boot/grub2/grub.cfg'
+  tags: 
+    - cis6119
+
+
+- name: CIS 6121 - Ensure events that modify user/group information are collected.
+  ansible.builtin.lineinfile:
+    path:   '/etc/audit/rules.d/identity.rules'
+    line:   '{{ item}}'
+    create: true
+  with_items:
+    - '-w /etc/group -p wa -k identity'
+    - '-w /etc/passwd -p wa -k identity'
+    - '-w /etc/gshadow -p wa -k identity'
+    - '-w /etc/shadow -p wa -k identity'
+    - '-w /etc/security/opasswd -p wa -k identity'
+  tags: 
+    - cis6121
+
+
+- name: CIS 6123 - Ensure events that modify the system's Mandatory Access Controls are collected.
+  ansible.builtin.lineinfile:
+    path:   '/etc/audit/rules.d/MAC-policy.rules'
+    line:   '{{ item}}'
+    create: true
+  with_items:
+    - '-w /etc/selinux/ -p wa -k MAC-policy'
+    - '-w /usr/share/selinux/ -p wa -k MAC-policy'
+  tags: 
+    - cis6123
+
+
+- name: CIS 6124 - Ensure login and logout events are collected.
+  ansible.builtin.lineinfile:
+    path:   '/etc/audit/rules.d/logins.rules'
+    line:   '{{ item}}'
+    create: true
+  with_items:
+    - '-w /var/log/lastlog -p wa -k logins'
+    - '-w /var/run/faillog/ -p wa -k logins'
+  tags: 
+    - cis6124
+
+
+- name: CIS 6125 - Ensure session initiation information is collected.
+  ansible.builtin.lineinfile:
+    path:   '/etc/audit/rules.d/logins.rules'
+    line:   '{{ item}}'
+    create: true
+  with_items:
+    - '-w /var/run/utmp -p wa -k session'
+    - '-w /var/log/wtmp -p wa -k logins'
+    - '-w /var/log/btmp -p wa -k logins'
+  tags: 
+    - cis6125
+
+
+- name: CIS 6130 - Ensure changes to system administration scope (sudoers) is collected.
+  ansible.builtin.lineinfile:
+    path:   '/etc/audit/rules.d/scope.rules'
+    line:   '{{ item}}'
+    create: true
+  with_items:
+    - '-w /etc/sudoers -p wa -k scope'
+    - '-w /etc/sudoers.d/ -p wa -k scope'
+  tags: 
+    - cis6130
+
+
+- name: CIS 6131 - Ensure system administrator actions (sudolog) are collected.
+  ansible.builtin.lineinfile:
+    path:   '/etc/audit/rules.d/action.rules'
+    line:   '{{ item}}'
+    create: true
+  with_items:
+    - '-w /var/log/sudo.log -p wa -k actions'
+  tags: 
+    - cis6131
+
+
+- name: CIS 6132 - Ensure kernel module loading and unloading is collected.
+  ansible.builtin.lineinfile:
+    path:   '/etc/audit/rules.d/modules.rules'
+    line:   '{{ item}}'
+    create: true
+  with_items:
+    - '-w /sbin/insmod -p x -k modules'
+    - '-w /sbin/rmmod -p x -k modules'
+    - '-w /sbin/modprobe -p x -k modules'
+    - '-a always,exit -F arch=b64 -S init_module -S delete_module -k modules'
+  tags: 
+    - cis6132
+
+
+- name: CIS 6133 - Ensure the audit configuration is immutable.
+  ansible.builtin.lineinfile:
+    path:   '/etc/audit/rules.d/99-finalize.rules'
+    line:   '{{ item}}'
+    create: true
+  with_items:
+    - '-2'
+  tags: 
+    - cis6133
+
+
+- name: CIS 6134 - Ensure rsyslog is installed.
+  ansible.builtin.yum:
+    name:   'rsyslog'
+    state:  latest
+  tags: 
+    - cis6134
+
+
+- name: CIS 6135 - Ensure rsyslog Service is enabled and running.
+  ansible.builtin.systemd:
+    name:     "rsyslog"
+    state:    restarted
+    enabled:  yes
+  tags: 
+    - cis6135
+
+
+- name: CIS 6136 - Ensure rsyslog default file permissions configured.
+  ansible.builtin.file:
+    path:   "{{item}}"
+    state:  file
+    mode:   '0640'
+    owner:  root
+    group:  root
+  with_items:
+    - '/etc/rsyslog.conf'
+    - '/etc/rsyslog.d/*.conf'
+  ignore_errors: true
+  tags: 
+    - cis6136
+
+
+- name: CIS 6138 - Ensure journald is configured to send logs to rsyslog.
+  ansible.builtin.lineinfile:
+    path:   '/etc/systemd/journald.conf'
+    line:   'ForwardToSyslog=yes'
+    regexp: '^ForwardToSyslog='
+  tags: 
+    - cis6138
+
+
+- name: CIS 6139 - Ensure journald is configured to compress large log files.
+  ansible.builtin.lineinfile:
+    path:   '/etc/systemd/journald.conf'
+    line:   'Compress=yes'
+    regexp: '^Compress='
+  tags: 
+    - cis6139
+
+
+- name: CIS 6140 - Ensure journald is configured to write logfiles to persistent disk.
+  ansible.builtin.lineinfile:
+    path:   '/etc/systemd/journald.conf'
+    line:   'Storage=persistent'
+    regexp: '^Storage='
+  tags: 
+    - cis6140
+
+
+- name: CIS 6141 - Ensure permissions on all logfiles are configured.
+  ansible.builtin.shell: 'find /var/log -type f -exec chmod g-wx,o-rwx "{}" + -o -type d -exec chmod g-wx,o-rwx "{}" +'
+  tags: 
+    - cis6141
+
+
+- name: CIS 6142 - Ensure cron daemon is enabled.
+  ansible.builtin.systemd:
+    name:     'crond'
+    enabled:  true
+  ignore_errors: true
+  tags: 
+    - cis6142
+
+
+- name: CIS 6143 - Ensure permissions on /etc/crontab are configured.
+  ansible.builtin.file:
+    path:   "/etc/crontab"
+    state:  file
+    mode:   '0600'
+    owner:  root
+    group:  root
+  tags: 
+    - cis6143
+
+
+- name: CIS 6144 - Ensure permissions on /etc/cron.hourly are configured.
+  ansible.builtin.file:
+    path:   "/etc/cron.hourly"
+    state:  directory
+    mode:   '0600'
+    owner:  root
+    group:  root
+  tags: 
+    - cis6144
+
+
+- name: CIS 6145 - Ensure permissions on /etc/cron.daily are configured.
+  ansible.builtin.file:
+    path:   "/etc/cron.daily"
+    state:  directory
+    mode:   '0600'
+    owner:  root
+    group:  root
+  tags: 
+    - cis6145
+
+
+- name: CIS 6146 - Ensure permissions on /etc/cron.weekly are configured.
+  ansible.builtin.file:
+    path:   "/etc/cron.weekly"
+    state:  directory
+    mode:   '0600'
+    owner:  root
+    group:  root
+  tags: 
+    - cis6146
+
+
+- name: CIS 6147 - Ensure permissions on /etc/cron.monthly are configured.
+  ansible.builtin.file:
+    path:   "/etc/cron.monthly"
+    state:  directory
+    mode:   '0600'
+    owner:  root
+    group:  root
+  tags: 
+    - cis6147
+
+
+- name: CIS 6148 - Ensure permissions on /etc/cron.d are configured.
+  ansible.builtin.file:
+    path:   "/etc/cron.d"
+    state:  directory
+    mode:   '0600'
+    owner:  root
+    group:  root
+  tags: 
+    - cis6148
+
+
+- name: CIS 6149 - Ensure cron is restricted to authorized users.
+  ansible.builtin.file:
+    path:   "{{ item }}"
+    state:  absent
+  with_items:
+    - '/etc/cron.deny'
+    - '/etc/at.deny'
+  ignore_errors: true
+  tags: 
+    - cis6149
+    - cis6150
+
+- name: CIS 6149 - Ensure cron is restricted to authorized users.
+  ansible.builtin.file:
+    path:   "{{ item }}"
+    state:  file
+    mode:   '0600'
+    owner:  root
+    group:  root
+  with_items:
+    - '/etc/cron.allow'
+    - '/etc/at.allow'
+  ignore_errors: true
+  tags: 
+    - cis6149
+    - cis6150
+
+
+- name: CIS 6151 - Ensure permissions on /etc/ssh/sshd_config are configured.
+  ansible.builtin.file:
+    path:   "/etc/ssh/sshd_config"
+    state:  file
+    mode:   '0600'
+    owner:  root
+    group:  root
+  tags: 
+    - cis6151
+
+
+- name: CIS 6152 - Ensure permissions on SSH private host key files are configured.
+  ansible.builtin.shell: '{{ item }}'
+  with_items:
+    - find /etc/ssh -xdev -type f -name 'ssh_host_*_key' -exec chmod u-x,g-wx,o-rwx {} \;
+    - find /etc/ssh -xdev -type f -name 'ssh_host_*_key' -exec chown root:ssh_keys {} \;
+  tags: 
+    - cis6152
+
+
+- name: CIS 6153 - Ensure permissions on SSH private host key files are configured.
+  ansible.builtin.shell: '{{ item }}'
+  with_items:
+    - find /etc/ssh -xdev -type f -name 'ssh_host_*_key.pub' -exec chmod u-x,go-wx {} \;
+    - find /etc/ssh -xdev -type f -name 'ssh_host_*_key.pub' -exec chown root:root {} \;
+  tags: 
+    - cis6153
+
+
+- name: CIS 6155 - Ensure SSH LogLevel is appropriate.
+  ansible.builtin.lineinfile:
+    path:   '/etc/ssh/sshd_config'
+    line:   'LogLevel INFO'
+    regexp: '^LogLevel'
+    insertbefore: '# Logging'
+  tags: 
+    - cis6155
+
+
+- name: CIS 6156 - Ensure SSH X11 forwarding is disabled.
+  ansible.builtin.lineinfile:
+    path:   '/etc/ssh/sshd_config'
+    line:   'X11Forwarding no'
+    regexp: '^X11Forwarding'
+  tags: 
+    - cis6156
+
+
+- name: CIS 6157 - Ensure SSH MaxAuthTries is set to 4 or less.
+  ansible.builtin.lineinfile:
+    path:   '/etc/ssh/sshd_config'
+    line:   'MaxAuthTries 4'
+    regexp: '^MaxAuthTries'
+    insertbefore: '# Authentication:'
+  tags: 
+    - cis6157
+
+
+- name: CIS 6158 - Ensure SSH IgnoreRhosts is enabled.
+  ansible.builtin.lineinfile:
+    path:   '/etc/ssh/sshd_config'
+    line:   'IgnoreRhosts yes'
+    regexp: '^IgnoreRhosts'
+    insertbefore: '# Authentication:'
+  tags: 
+    - cis6158
+
+
+- name: CIS 6159 - Ensure SSH HostbasedAuthentication is disabled.
+  ansible.builtin.lineinfile:
+    path:   '/etc/ssh/sshd_config'
+    line:   'HostbasedAuthentication no'
+    regexp: '^HostbasedAuthentication'
+    insertbefore: '# Authentication:'
+  tags: 
+    - cis6159
+
+
+- name: CIS 6160 - Ensure SSH root login is disabled.
+  ansible.builtin.lineinfile:
+    path:   '/etc/ssh/sshd_config'
+    line:   'PermitRootLogin no'
+    regexp: '^PermitRootLogin'
+    insertbefore: '# Authentication:'
+  tags: 
+    - cis6160
+
+
+- name: CIS 6161 - Ensure SSH PermitEmptyPasswords is disabled.
+  ansible.builtin.lineinfile:
+    path:   '/etc/ssh/sshd_config'
+    line:   'PermitEmptyPasswords no'
+    regexp: '^PermitEmptyPasswords'
+    insertbefore: '# Authentication:'
+  tags: 
+    - cis6161
+
+
+- name: CIS 6162 - Ensure SSH PermitUserEnvironment is disabled.
+  ansible.builtin.lineinfile:
+    path:   '/etc/ssh/sshd_config'
+    line:   'PermitUserEnvironment no'
+    regexp: '^PermitUserEnvironment'
+    insertbefore: '# Authentication:'
+  tags: 
+    - cis6162
+
+
+- name: CIS 6163 - Ensure SSH Idle Timeout Interval is configured.
+  ansible.builtin.lineinfile:
+    path:   '/etc/ssh/sshd_config'
+    line:   'Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr'
+    regexp: '^Ciphers'
+    insertbefore: '# Ciphers and keying'
+  tags: 
+    - cis6163
+
+
+- name: CIS 6164 - Ensure only strong MAC algorithms are used.
+  ansible.builtin.lineinfile:
+    path:   '/etc/ssh/sshd_config'
+    line:   'MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,hmac-sha2-512,hmac-sha2-256'
+    regexp: '^MACs'
+    insertbefore: '# Ciphers and keying'
+  tags: 
+    - cis6164
+
+
+- name: CIS 6165 - Ensure only strong Key Exchange algorithms are used.
+  ansible.builtin.lineinfile:
+    path:   '/etc/ssh/sshd_config'
+    line:   'KexAlgorithms curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group14-sha256,diffie-hellman-group16-sha512,diffie-hellman-group18-sha512,ecdh-sha2-nistp521,ecdh-sha2-nistp384,ecdh-sha2-nistp256,diffie-hellman-group-exchange-sha256'
+    regexp: '^KexAlgorithms'
+    insertbefore: '# Ciphers and keying'
+  tags: 
+    - cis6165
+
+
+- name: CIS 6166 - Ensure SSH Idle Timeout Interval is configured.
+  ansible.builtin.lineinfile:
+    path:   '/etc/ssh/sshd_config'
+    line:   'ClientAliveInterval 300'
+    regexp: '^ClientAliveInterval'
+  tags: 
+    - cis6166
+
+- name: CIS 6166 - Ensure SSH Idle Timeout Interval is configured.
+  ansible.builtin.lineinfile:
+    path:   '/etc/ssh/sshd_config'
+    line:   'ClientAliveCountMax 0'
+    regexp: '^ClientAliveCountMax'
+  tags: 
+    - cis6166
+
+
+- name: CIS 6167 - Ensure SSH LoginGraceTime is set to one minute or less.
+  ansible.builtin.lineinfile:
+    path:   '/etc/ssh/sshd_config'
+    line:   'LoginGraceTime 60'
+    regexp: '^LoginGraceTime'
+    insertbefore: '# Authentication:'
+  tags: 
+    - cis6167
+
+
+- name: CIS 6169 - Ensure SSH PAM is enabled.
+  ansible.builtin.lineinfile:
+    path:   '/etc/ssh/sshd_config'
+    line:   'UsePAM yes'
+    regexp: '^UsePAM'
+    insertbefore: '# Authentication:'
+  tags: 
+    - cis6169
+
+
+- name: CIS 6170 - Ensure SSH AllowTcpForwarding is disabled.
+  ansible.builtin.lineinfile:
+    path:   '/etc/ssh/sshd_config'
+    line:   'AllowTcpForwarding no'
+    regexp: '^AllowTcpForwarding'
+  tags: 
+    - cis6170
+
+
+- name: CIS 6171 - Ensure SSH MaxStartups is configured.
+  ansible.builtin.lineinfile:
+    path:   '/etc/ssh/sshd_config'
+    line:   'maxstartups 10:30:60'
+    regexp: '^maxstartups'
+  tags: 
+    - cis6171
+
+
+- name: CIS 6172 - Ensure SSH MaxSessions is limited.
+  ansible.builtin.lineinfile:
+    path:   '/etc/ssh/sshd_config'
+    line:   'MaxSessions 10'
+    regexp: '^MaxSessions'
+  tags: 
+    - cis6172
+
+
+- name: CIS 6173 - Ensure password creation requirements are configured.
+  ansible.builtin.lineinfile:
+    path:   '/etc/security/pwquality.conf'
+    line:   '{{ item.new_line }}'
+    regexp: '^{{ item.regexp }}'
+  with_items:
+    - {new_line: "minlen = 14", regexp: "^minlen"}
+    - {new_line: "minclass = 14", regexp: "^minclass"}
+  tags: 
+    - cis6173
+
+
+- name: CIS 6174 - Ensure password hashing algorithm is SHA-512.
+  ansible.builtin.lineinfile:
+    path:   '/etc/pam.d/password-auth'
+    line:   'password sufficient pam_unix.so sha512'
+  tags: 
+    - cis6174
+
+- name: CIS 6174 - Ensure password hashing algorithm is SHA-512.
+  ansible.builtin.lineinfile:
+    path:   '/etc/pam.d/system-auth'
+    line:   'password sufficient pam_unix.so sha512'
+  tags: 
+    - cis6174
+
+
+- name: CIS 6175 - Ensure password reuse is limited.
+  ansible.builtin.lineinfile:
+    path:   '/etc/pam.d/password-auth'
+    line:   'password sufficient pam_unix.so remember=5'
+  tags: 
+    - cis6175
+
+- name: CIS 6175 - Ensure password reuse is limited.
+  ansible.builtin.lineinfile:
+    path:   '/etc/pam.d/system-auth'
+    line:   'password sufficient pam_unix.so remember=5'
+  tags: 
+    - cis6175
+
+
+- name: CIS 6176 - Ensure password expiration is 365 days or less.
+  ansible.builtin.lineinfile:
+    path:   '/etc/login.defs'
+    line:   'PASS_MAX_DAYS 90'
+    regexp: '^PASS_MAX_DAYS'
+  tags: 
+    - cis6176
+
+
+- name: CIS 6177 - Ensure minimum days between password changes is configured.
+  ansible.builtin.lineinfile:
+    path:   '/etc/login.defs'
+    line:   'PASS_MIN_DAYS 1'
+    regexp: '^PASS_MIN_DAYS'
+  tags: 
+    - cis6177
+
+
+- name: CIS 6178 - Ensure minimum days between password changes is 7 or more.
+  ansible.builtin.lineinfile:
+    path:   '/etc/login.defs'
+    line:   'PASS_WARN_AGE 7'
+    regexp: '^PASS_WARN_AGE'
+  tags: 
+    - cis6178
+
+
+- name: CIS 6179 - Ensure inactive password lock is 30 days or less.
+  ansible.builtin.command: 'useradd -D -f 30'
+  tags: 
+    - cis6179
+
+
+- name: CIS 6180 - Ensure default group for the root account is GID 0.
+  ansible.builtin.command: 'usermod -g 0 root'
+  tags: 
+    - cis6180
+
+
+- name: CIS 6181 - Ensure default user shell timeout is configured.
+  ansible.builtin.lineinfile:
+    path:   '{{ item }}'
+    line:   'TMOUT=600'
+    regexp: '^TMOUT'
+  with_items:
+    - '/etc/bashrc'
+    - '/etc/profile'
+  tags: 
+    - cis6181
+
+
+- name: CIS 6182 - Ensure default user umask is configured.
+  ansible.builtin.lineinfile:
+    path:   '{{ item }}'
+    line:   'umask 027'
+    regexp: '^umask'
+  with_items:
+    - '/etc/bashrc'
+    - '/etc/profile'
+  tags: 
+    - cis6182
+
+
+- name: CIS 6183 - Ensure access to the su command is restricted.
+  ansible.builtin.lineinfile:
+    path:   '/etc/pam.d/su'
+    line:   'auth required pam_wheel.so use_uid'
+  tags: 
+    - cis6183
+
+
+- name: CIS 6184 - Ensure permissions on /etc/passwd are configured.
+  ansible.builtin.file:
+    path:   "/etc/passwd"
+    state:  file
+    mode:   '0600'
+    owner:  root
+    group:  root
+  tags: 
+    - cis6184
+
+
+- name: CIS 6185 - Ensure permissions on /etc/shadow are configured.
+  ansible.builtin.file:
+    path:   "/etc/shadow"
+    state:  file
+    mode:   '0000'
+    owner:  root
+    group:  root
+  tags: 
+    - cis6185
+
+
+- name: CIS 6186 - Ensure permissions on /etc/group are configured.
+  ansible.builtin.file:
+    path:   "/etc/group"
+    state:  file
+    mode:   '0600'
+    owner:  root
+    group:  root
+  tags: 
+    - cis6186
+
+
+- name: CIS 6187 - Ensure permissions on /etc/gshadow are configured.
+  ansible.builtin.file:
+    path:   "/etc/gshadow"
+    state:  file
+    mode:   '0000'
+    owner:  root
+    group:  root
+  tags: 
+    - cis6187
+
+
+- name: CIS 6188 - Ensure permissions on /etc/passwd- are configured.
+  ansible.builtin.file:
+    path:   "/etc/passwd-"
+    state:  file
+    mode:   '0644'
+    owner:  root
+    group:  root
+  tags: 
+    - cis6188
+
+
+- name: CIS 6189 - Ensure permissions on /etc/shadow- are configured.
+  ansible.builtin.file:
+    path:   "/etc/shadow-"
+    state:  file
+    mode:   '0000'
+    owner:  root
+    group:  root
+  tags: 
+    - cis6189
+
+
+- name: CIS 6190 - Ensure permissions on /etc/group- are configured.
+  ansible.builtin.file:
+    path:   "/etc/group-"
+    state:  file
+    mode:   '0644'
+    owner:  root
+    group:  root
+  tags: 
+    - cis6190
+
+
+- name: CIS 6191 - Ensure permissions on /etc/gshadow- are configured.
+  ansible.builtin.file:
+    path:   "/etc/gshadow-"
+    state:  file
+    mode:   '0000'
+    owner:  root
+    group:  root
+  tags: 
+    - cis6191
+

@@ -1,0 +1,83 @@
+---
+- hosts: cpd_tor
+  become: true
+  become_method: enable
+  vars:
+    env_name:
+    env_vlan:
+
+  tasks:
+  - name: Config switches rack 9
+    dellos9_config:
+      lines:
+        - interface Vlan {{ env_vlan }}
+        - description "Stratio Labs - {{ env_name }}"
+        - no ip address
+        - tagged twentyFiveGigE 1/8
+        - tagged Port-channel 51-52,54,57
+        - no shutdown
+      match: exact
+      save: true
+    when: "ansible_network_os == 'dellos9' and ('r9-sw1' in inventory_hostname or 'r9-sw2' in inventory_hostname)"
+
+  - name: Config switches rack 5 Vlan
+    dellos6_config:
+      lines:
+        - vlan {{ env_vlan }}
+        - name "Stratio Labs - {{ env_name }}"
+      match: exact
+      save: true
+    when: "ansible_network_os == 'dellos6' and 'r5-sw2' in inventory_hostname and 'r5-sw3' in inventory_hostname"
+
+  - name: Config switches rack 5 Switch 2
+    dellos6_config:
+      lines:
+        - interface range tengigabitethernet 1/0/1-48
+        - switchport trunk allowed vlan add {{ env_vlan }}
+      match: exact
+      save: true
+    when: "ansible_network_os == 'dellos6' and 'r5-sw2' in inventory_hostname and 'r5-sw3' in inventory_hostname"
+
+  - name: Config switches rack 5 Switch 3
+    dellos6_config:
+      lines:
+        - interface range tengigabitethernet 2/0/1-48
+        - switchport trunk allowed vlan add {{ env_vlan }}
+      match: exact
+      save: true
+    when: "ansible_network_os == 'dellos6' and 'r5-sw2' in inventory_hostname and 'r5-sw3' in inventory_hostname"
+
+  - name: Config switches rack 5 Port Channel
+    dellos6_config:
+      lines:
+        - interface port-channel 49
+        - switchport trunk allowed vlan add {{ env_vlan }}
+      match: exact
+      save: true
+    when: "ansible_network_os == 'dellos6' and 'r5-sw2' in inventory_hostname and 'r5-sw3' in inventory_hostname"
+
+  - name: Config switches rack 4
+    dellos9_config:
+      lines:
+        - interface Vlan {{ env_vlan }}
+        - description "Stratio Labs - {{ env_name }}"
+        - no ip address
+        - tagged TenGigabitEthernet 1/1-1/48
+        - tagged Port-channel 49
+        - no shutdown
+      match: exact
+      save: true
+    when: "ansible_network_os == 'dellos9' and ('r4-sw2' in inventory_hostname or 'r4-sw3' in inventory_hostname)"
+
+  - name: Config switches rack 7
+    dellos9_config:
+      lines:
+        - interface Vlan {{ env_vlan }}
+        - description "Stratio Labs - {{ env_name }}"
+        - no ip address
+        - tagged TenGigabitEthernet 1/1-1/48
+        - tagged Port-channel 49
+        - no shutdown
+      match: exact
+      save: true
+    when: "ansible_network_os == 'dellos9' and ('r7-sw2' in inventory_hostname or 'r7-sw3' in inventory_hostname)"

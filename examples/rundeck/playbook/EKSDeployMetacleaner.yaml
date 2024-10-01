@@ -1,0 +1,172 @@
+---
+- hosts: localhost
+  vars:
+    image_tag:          ""
+    namespace:          "production"
+    keos_kubeconfig_path: "/var/lib/rundeck/workspace/EKSProductionCluster/APPSINTconfig"
+    certificate_arn:    "arn:aws:acm:eu-west-3:105054799343:certificate/12cdc8f7-5caf-45fd-a8a5-dcea942ab653"
+    metaclean_activationCode: ""
+
+  tasks:
+
+  - name: Deploy Stratio Metacleaner deployment
+    kubernetes.core.k8s:
+      kubeconfig: "{{ keos_kubeconfig_path }}"
+      state: present
+      definition: 
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: "metacleaner"
+          namespace: "{{ namespace }}-public"
+          labels:
+            app: "metacleaner"
+        spec:
+          # how many pods and indicate which strategy we want for rolling update
+          replicas: 1
+          selector:
+            matchLabels:
+              app: "metacleaner"
+          minReadySeconds: 10
+          template:
+            metadata:
+              namespace: "{{ namespace }}-public"
+              labels:
+                app: "metacleaner"
+            spec:
+              containers:
+                - name: metacleaner
+                  image: stratio-releases.repo.stratio.com/stratio/stratio-metaclean:{{image_tag}}
+                  imagePullPolicy: Always
+                  ports:
+                    - containerPort: 8080
+                      name: "metacleaner"
+                  env:
+                    - name: metaclean_activationCode
+                      value: "{{ metaclean_activationCode }}"
+              imagePullSecrets:
+                - name: repostatiocom-secret
+
+  - name: Deploy Stratio Metacleaner Service
+    kubernetes.core.k8s:
+      kubeconfig: "{{ keos_kubeconfig_path }}"
+      state: present
+      definition: 
+        kind: Service
+        apiVersion: v1
+        metadata:
+          name: "metacleaner"
+          namespace: "{{ namespace }}-public"
+        spec:
+          selector:
+            app: "metacleaner"
+          ports:
+          - name: "metacleaner"
+            port: 8080
+            targetPort: "metacleaner"
+            protocol: TCP
+          type: ClusterIP
+
+  - name: Deploy Stratio Metacleaner Ingress
+    kubernetes.core.k8s:
+      kubeconfig: "{{ keos_kubeconfig_path }}"
+      state: present
+      definition:
+        apiVersion: networking.k8s.io/v1
+        kind: Ingress
+        metadata:
+          name: "metacleaner"
+          namespace: "{{ namespace }}-public"
+          annotations:
+            alb.ingress.kubernetes.io/load-balancer-name: "eks-{{ namespace }}-public-metaclean"
+            alb.ingress.kubernetes.io/certificate-arn: "{{certificate_arn}}"
+            alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS":443}]'
+            alb.ingress.kubernetes.io/scheme: internet-facing
+            alb.ingress.kubernetes.io/ssl-redirect: '443'
+            alb.ingress.kubernetes.io/target-type: ip
+            alb.ingress.kubernetes.io/success-codes: '200'
+        spec:
+          ingressClassName: alb
+          rules:
+            - host: "metacleaner.stratio.com"
+              http:
+                paths:
+                  - path: /
+                    pathType: Prefix
+                    backend:
+                      service:
+                        name: "metacleaner"
+                        port:
+                          number: 8080
+
+  - name: Wait until ingress is ready
+    pause:
+      seconds : 10
+
+  - name: Get Stratio Metacleaner AWS internal Load Balancer
+    kubernetes.core.k8s_info:
+      kubeconfig: "{{ keos_kubeconfig_path }}"
+      api_version: v1
+      kind: Ingress
+      name: "metacleaner"
+      namespace: "{{ namespace }}-public"
+    register: kube_prom
+
+  - name: Wait until ALB is ready
+    wait_for:
+      host: "{{ kube_prom.resources[0].status.loadBalancer.ingress[0].hostname }}"
+      port: 443
+      delay: 10
+      state: started
+
+  - name: Update Stratio Metacleaner with AWS internal Load Balancer
+    kubernetes.core.k8s:
+      kubeconfig: "{{ keos_kubeconfig_path }}"
+      state: present
+      definition:
+        apiVersion: networking.k8s.io/v1
+        kind: Ingress
+        metadata:
+          name: "metacleaner"
+          namespace: "{{ namespace }}-public"
+          annotations:
+            alb.ingress.kubernetes.io/load-balancer-name: "eks-{{ namespace }}-public-metaclean"
+            alb.ingress.kubernetes.io/certificate-arn: "{{certificate_arn}}"
+            alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS":443}]'
+            alb.ingress.kubernetes.io/scheme: internet-facing
+            alb.ingress.kubernetes.io/ssl-redirect: '443'
+            alb.ingress.kubernetes.io/target-type: ip
+            alb.ingress.kubernetes.io/success-codes: '200'
+        spec:
+          ingressClassName: alb
+          rules:
+            - host: "metacleaner.stratio.com"
+              http:
+                paths:
+                  - path: /
+                    pathType: Prefix
+                    backend:
+                      service:
+                        name: "metacleaner"
+                        port:
+                          number: 8080
+            - host: "{{ kube_prom.resources[0].status.loadBalancer.ingress[0].hostname }}"
+              http:
+                paths:
+                  - path: /
+                    pathType: Prefix
+                    backend:
+                      service:
+                        name: "metacleaner"
+                        port:
+                          number: 8080
+
+  - name: Print ALB endpoints URLs
+    vars:
+      urls:
+        stratio_web: 
+          - "https://metacleaner.stratio.com"
+        aws_endpoint: 
+          - "https://{{ kube_prom.resources[0].status.loadBalancer.ingress[0].hostname }}"
+    debug:
+      var: urls
